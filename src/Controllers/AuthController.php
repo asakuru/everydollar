@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace App\Controllers;
 
 use App\Services\AuthService;
+use App\Services\Database;
 use Psr\Http\Message\ResponseInterface as Response;
 use Psr\Http\Message\ServerRequestInterface as Request;
 use Slim\Views\Twig;
@@ -17,10 +18,12 @@ use Slim\Views\Twig;
 class AuthController extends BaseController
 {
     private AuthService $authService;
+    private Database $db;
 
-    public function __construct(Twig $twig, AuthService $authService)
+    public function __construct(Twig $twig, Database $db, AuthService $authService)
     {
-        parent::__construct($twig);
+        parent::__construct($twig, $db);
+        $this->db = $db;
         $this->authService = $authService;
     }
 

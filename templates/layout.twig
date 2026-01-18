@@ -47,6 +47,47 @@
                     </div>
                 </div>
                 <div class="flex items-center space-x-4">
+                    <!-- Entity Switcher & Actions -->
+                    <div class="relative group">
+                        <button class="flex items-center space-x-2 text-gray-300 hover:text-white focus:outline-none">
+                            <span class="font-medium max-w-[150px] truncate">{{ current_entity.name ?? 'Personal' }}</span>
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                            </svg>
+                        </button>
+                        
+                        <!-- Dropdown Menu -->
+                        <div class="absolute right-0 mt-2 w-48 bg-gray-800 border border-gray-700 rounded-md shadow-lg py-1 hidden group-hover:block z-50">
+                            <div class="px-4 py-2 border-b border-gray-700">
+                                <span class="text-xs text-gray-500 uppercase font-semibold">Switch Entity</span>
+                            </div>
+                            {% for entity in user_entities %}
+                                <a href="{{ base_path('/entities/' ~ entity.id ~ '/switch') }}" 
+                                   class="block px-4 py-2 text-sm text-gray-300 hover:bg-gray-700 hover:text-white {% if entity.id == current_entity_id %}font-bold text-emerald-400{% endif %}">
+                                    {{ entity.name }}
+                                </a>
+                            {% endfor %}
+                            
+                            <div class="border-t border-gray-700 my-1"></div>
+                            
+                            <a href="{{ base_path('/entities') }}" class="block px-4 py-2 text-sm text-gray-300 hover:bg-gray-700 hover:text-white">
+                                Manage Entities
+                            </a>
+                            <a href="{{ base_path('/accounts') }}" class="block px-4 py-2 text-sm text-gray-300 hover:bg-gray-700 hover:text-white">
+                                Manage Accounts
+                            </a>
+                            {% if current_entity.type == 'business' %}
+                                <a href="{{ base_path('/llc-dashboard') }}" class="block px-4 py-2 text-sm text-gray-300 hover:bg-gray-700 hover:text-white">
+                                    LLC Dashboard
+                                </a>
+                                <a href="{{ base_path('/invoices') }}" class="block px-4 py-2 text-sm text-gray-300 hover:bg-gray-700 hover:text-white">
+                                    Invoices
+                                </a>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <span class="text-sm text-gray-400">|</span>
                     <span class="text-sm text-gray-400">{{ user.name }}</span>
                     <a href="{{ base_path('/settings/security') }}" 
                        class="text-gray-400 hover:text-white transition-colors" title="Settings">

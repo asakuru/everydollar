@@ -4,8 +4,9 @@
 
 {% block content %}
 <div class="space-y-6">
-    <!-- Header -->
+    <!-- Filters & Header -->
     <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <!-- Month Navigation -->
         <div class="flex items-center space-x-4">
             <a href="{{ base_path('/transactions/' ~ prev_month) }}" 
                class="p-2 text-gray-400 hover:text-white hover:bg-gray-700 rounded-lg transition-colors">
@@ -22,7 +23,19 @@
             </a>
         </div>
         
-        <div class="flex items-center space-x-3">
+        <!-- Filters & Actions -->
+        <div class="flex items-center space-x-3 flex-wrap">
+            <!-- Account Filter -->
+            <form method="GET" class="flex items-center">
+                 <select name="account" onchange="this.form.submit()" 
+                        class="px-3 py-2 text-sm bg-gray-700 hover:bg-gray-600 text-gray-300 rounded-lg border-none focus:ring-0 cursor-pointer">
+                    <option value="">All Accounts</option>
+                    {% for acc in accounts %}
+                        <option value="{{ acc.id }}" {% if filters.account == acc.id %}selected{% endif %}>{{ acc.name }}</option>
+                    {% endfor %}
+                </select>
+            </form>
+
             <a href="{{ base_path('/transactions/' ~ month ~ '/uncategorized') }}" 
                class="px-4 py-2 text-sm bg-gray-700 hover:bg-gray-600 text-gray-300 rounded-lg transition-colors">
                 Uncategorized
@@ -40,6 +53,9 @@
         <form method="POST" action="{{ base_path('/transaction') }}" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-4">
             {{ csrf_field()|raw }}
             <input type="hidden" name="return_to" value="{{ base_path('/transactions/' ~ month) }}">
+            {% if current_entity_id %}
+            <input type="hidden" name="entity_id" value="{{ current_entity_id }}">
+            {% endif %}
             
             <div>
                 <label class="block text-sm text-gray-400 mb-1">Date</label>
@@ -58,7 +74,7 @@
             
             <div>
                 <label class="block text-sm text-gray-400 mb-1">Payee</label>
-                <input type="text" name="payee" required placeholder="Who did you pay?"
+                <input type="text" name="payee" required placeholder="Who?"
                        class="w-full px-3 py-2 bg-gray-900 border border-gray-600 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-emerald-500">
             </div>
             
@@ -66,6 +82,17 @@
                 <label class="block text-sm text-gray-400 mb-1">Amount</label>
                 <input type="text" name="amount" required placeholder="0.00"
                        class="w-full px-3 py-2 bg-gray-900 border border-gray-600 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-emerald-500">
+            </div>
+
+             <div>
+                <label class="block text-sm text-gray-400 mb-1">Account</label>
+                <select name="account_id"
+                        class="w-full px-3 py-2 bg-gray-900 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-emerald-500">
+                    <option value="">-- None --</option>
+                    {% for acc in accounts %}
+                        <option value="{{ acc.id }}">{{ acc.name }}</option>
+                    {% endfor %}
+                </select>
             </div>
             
             <div>
@@ -86,7 +113,9 @@
                 </select>
             </div>
             
-            <div class="flex items-end">
+            <div class="hidden lg:block"></div> <!-- Spacer if needed or adjust grid -->
+            
+            <div class="flex items-end col-span-1 sm:col-span-2 lg:col-span-6 xl:col-span-1">
                 <button type="submit" 
                         class="w-full px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-medium rounded-lg transition-colors">
                     Add
@@ -102,6 +131,7 @@
                 <tr class="text-left text-sm text-gray-400">
                     <th class="px-5 py-3 font-medium">Date</th>
                     <th class="px-5 py-3 font-medium">Payee</th>
+                    <th class="px-5 py-3 font-medium">Account</th>
                     <th class="px-5 py-3 font-medium">Category</th>
                     <th class="px-5 py-3 font-medium text-right">Amount</th>
                     <th class="px-5 py-3 font-medium w-20"></th>
@@ -116,6 +146,9 @@
                         {% if transaction.memo %}
                         <div class="text-sm text-gray-500">{{ transaction.memo }}</div>
                         {% endif %}
+                    </td>
+                    <td class="px-5 py-3 text-sm text-gray-400">
+                         {{ transaction.account_name ?? '-' }}
                     </td>
                     <td class="px-5 py-3">
                         {% if transaction.category_name %}
@@ -139,7 +172,7 @@
                 </tr>
                 {% else %}
                 <tr>
-                    <td colspan="5" class="px-5 py-8 text-center text-gray-500">
+                    <td colspan="6" class="px-5 py-8 text-center text-gray-500">
                         No transactions this month. Add one above!
                     </td>
                 </tr>

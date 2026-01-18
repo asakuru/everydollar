@@ -18,13 +18,11 @@ use Slim\Views\Twig;
 
 class ImportController extends BaseController
 {
-    private Database $db;
     private CsvParserService $csvParser;
 
     public function __construct(Twig $twig, Database $db, CsvParserService $csvParser)
     {
-        parent::__construct($twig);
-        $this->db = $db;
+        parent::__construct($twig, $db);
         $this->csvParser = $csvParser;
     }
 

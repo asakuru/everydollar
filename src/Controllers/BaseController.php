@@ -11,14 +11,16 @@ namespace App\Controllers;
 
 use Psr\Http\Message\ResponseInterface as Response;
 use Slim\Views\Twig;
+use App\Services\Database;
 
 abstract class BaseController
 {
-    protected Twig $twig;
+    protected Database $db;
 
-    public function __construct(Twig $twig)
+    public function __construct(Twig $twig, Database $db)
     {
         $this->twig = $twig;
+        $this->db = $db;
     }
 
     /**
@@ -29,6 +31,41 @@ abstract class BaseController
         // Add common data
         $data['user'] = $this->getAuthUser();
         $data['flash'] = $this->getFlash();
+
+        // Add Entity Data
+        if (isset($_SESSION['user_id'])) {
+            $data['current_entity_id'] = \App\Controllers\EntityController::getCurrentEntityId();
+
+            // Fetch all entities for switcher
+            try {
+                $householdId = $this->householdId();
+                if ($householdId) {
+                    $data['user_entities'] = $this->db->fetchAll(
+                        "SELECT id, name, type FROM entities WHERE household_id = ? ORDER BY type, name",
+                        [$householdId]
+                    );
+
+                    // If no entity selected, select first
+                    if (!$data['current_entity_id'] && !empty($data['user_entities'])) {
+                        $firstId = $data['user_entities'][0]['id'];
+                        \App\Controllers\EntityController::setCurrentEntityId((int) $firstId);
+                        $data['current_entity_id'] = $firstId;
+                    }
+
+                    // Get current entity details
+                    if ($data['current_entity_id']) {
+                        foreach ($data['user_entities'] as $e) {
+                            if ($e['id'] == $data['current_entity_id']) {
+                                $data['current_entity'] = $e;
+                                break;
+                            }
+                        }
+                    }
+                }
+            } catch (\Exception $e) {
+                // Ignore DB errors during rendering to avoid loops
+            }
+        }
 
         return $this->twig->render($response, $template, $data);
     }

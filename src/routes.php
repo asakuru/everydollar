@@ -19,6 +19,10 @@ use App\Controllers\ReportsController;
 use App\Controllers\SettingsController;
 use App\Controllers\InviteController;
 use App\Controllers\ImportController;
+use App\Controllers\EntityController;
+use App\Controllers\AccountController;
+use App\Controllers\InvoiceController;
+use App\Controllers\LLCDashboardController;
 use App\Middleware\AuthMiddleware;
 
 /** @var App $app */
@@ -76,6 +80,34 @@ $app->group('', function (RouteCollectorProxy $group) {
     $group->get('/import', [ImportController::class, 'showForm'])->setName('import');
     $group->post('/import/preview', [ImportController::class, 'preview']);
     $group->post('/import/confirm', [ImportController::class, 'import']);
+
+    // Entity Management
+    $group->get('/entities', [EntityController::class, 'index'])->setName('entities');
+    $group->get('/entities/create', [EntityController::class, 'showCreate']);
+    $group->post('/entities/store', [EntityController::class, 'create']);
+    $group->get('/entities/{id}/edit', [EntityController::class, 'showEdit']);
+    $group->post('/entities/{id}/update', [EntityController::class, 'update']);
+    $group->get('/entities/{id}/switch', [EntityController::class, 'switch'])->setName('entities.switch');
+
+    // Account Management
+    $group->get('/accounts', [AccountController::class, 'index'])->setName('accounts');
+    $group->get('/accounts/create', [AccountController::class, 'showCreate']);
+    $group->post('/accounts/store', [AccountController::class, 'create']);
+    $group->get('/accounts/{id}/edit', [AccountController::class, 'showEdit']);
+    $group->post('/accounts/{id}/update', [AccountController::class, 'update']);
+    $group->post('/accounts/{id}/archive', [AccountController::class, 'archive']);
+    $group->post('/accounts/{id}/adjust', [AccountController::class, 'adjustBalance']);
+
+    // LLC Feature Routes
+    $group->get('/llc-dashboard', [LLCDashboardController::class, 'index'])->setName('llc.dashboard');
+    $group->post('/llc-dashboard/record-tax', [LLCDashboardController::class, 'recordTaxPayment']);
+
+    // Invoice Management
+    $group->get('/invoices', [InvoiceController::class, 'index'])->setName('invoices');
+    $group->get('/invoices/create', [InvoiceController::class, 'showCreate']);
+    $group->post('/invoices/store', [InvoiceController::class, 'create']);
+    $group->post('/invoices/{id}/sent', [InvoiceController::class, 'markSent']);
+    $group->post('/invoices/{id}/paid', [InvoiceController::class, 'markPaid']);
 
     // Reports
     $group->get('/reports', [ReportsController::class, 'index'])->setName('reports');

@@ -1,35 +1,48 @@
 <?php
 /**
- * Migration Runner
+ * Database Migration Utility
  * 
- * Simple migration system that tracks which migrations have been applied.
- * Run from command line: php migrations/migrate.php
+ * Usage: php migrations/migrate.php
  */
 
-declare(strict_types=1);
+error_reporting(E_ALL);
+ini_set('display_errors', 1);
 
-// Ensure running from CLI
-if (php_sapi_name() !== 'cli') {
-    die('This script must be run from the command line.');
+echo "EveryDollar Database Migrator\n";
+echo "=============================\n\n";
+
+// Define paths
+$rootDir = dirname(__DIR__); // public_html/everydollar is root for web, but repo root is one up
+// Wait, if this file is in /migrations, then __DIR__ is /path/to/repo/migrations
+// So $rootDir is /path/to/repo
+$rootDir = dirname(__DIR__);
+
+echo "Repo Root: {$rootDir}\n";
+
+// Load Config
+$configPaths = [
+    '/home/ravenscv/config/everydollar/config.php',  // Production
+    $rootDir . '/config/everydollar/config.php',     // Standard dev
+    $rootDir . '/config.php',                        // Local dev fallback
+];
+
+$config = null;
+$configPath = null;
+
+foreach ($configPaths as $path) {
+    if (file_exists($path)) {
+        $configPath = $path;
+        echo "Loading config from: {$path}\n";
+        $config = require $path;
+        break;
+    }
 }
 
-define('ROOT_DIR', dirname(__DIR__));
-
-// Load configuration
-$configPath = dirname(ROOT_DIR) . '/config/everydollar/config.php';
-if (!file_exists($configPath)) {
-    $configPath = ROOT_DIR . '/config.php';
+if (!$config) {
+    die("Error: Config file not found.\n");
 }
 
-if (!file_exists($configPath)) {
-    echo "Error: config.php not found.\n";
-    echo "Please copy config.sample.php to config.php and configure your database.\n";
-    exit(1);
-}
-
-$config = require $configPath;
-
-// Connect to database
+// Connect to Database
 try {
     $dsn = sprintf(
         'mysql:host=%s;port=%d;dbname=%s;charset=%s',
@@ -44,87 +57,49 @@ try {
         PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
     ]);
 
-    echo "Connected to database: {$config['db']['database']}\n";
+    echo "Connected to database: {$config['db']['database']}\n\n";
 } catch (PDOException $e) {
-    echo "Database connection failed: " . $e->getMessage() . "\n";
-    exit(1);
+    die("Database Connection Error: " . $e->getMessage() . "\n");
 }
 
-// Get list of migration files
-$migrationsDir = __DIR__;
-$migrationFiles = glob($migrationsDir . '/*.sql');
-natsort($migrationFiles);
+// Migration Files
+$migrationFile = __DIR__ . '/002_multi_entity.sql';
 
-if (empty($migrationFiles)) {
-    echo "No migration files found in {$migrationsDir}\n";
-    exit(0);
+if (!file_exists($migrationFile)) {
+    die("Error: Migration file not found at {$migrationFile}\n");
 }
 
-// Get applied migrations
-$appliedMigrations = [];
+echo "Running migration: 002_multi_entity.sql\n... ";
+
 try {
-    // Check if migrations table exists
-    $result = $pdo->query("SHOW TABLES LIKE 'migrations'");
-    if ($result->rowCount() > 0) {
-        $stmt = $pdo->query("SELECT migration FROM migrations ORDER BY id");
-        $appliedMigrations = $stmt->fetchAll(PDO::FETCH_COLUMN);
+    // Read SQL
+    $sql = file_get_contents($migrationFile);
+
+    // Strip comments to avoid parsing issues with logic
+    $lines = explode("\n", $sql);
+    $cleanLines = array_filter($lines, fn($line) => !str_starts_with(trim($line), '--'));
+    $cleanSql = implode("\n", $cleanLines);
+
+    // Split into statements
+    $statements = array_filter(
+        array_map('trim', explode(';', $cleanSql)),
+        fn($s) => !empty($s)
+    );
+
+    $pdo->beginTransaction();
+
+    foreach ($statements as $stmt) {
+        $pdo->exec($stmt);
     }
+
+    $pdo->commit();
+    echo "Done!\n";
+    echo "Success: Migration 002 applied successfully.\n";
+
 } catch (PDOException $e) {
-    // migrations table doesn't exist yet, will be created by first migration
-}
-
-$applied = 0;
-$skipped = 0;
-
-foreach ($migrationFiles as $file) {
-    $filename = basename($file);
-
-    if (in_array($filename, $appliedMigrations)) {
-        echo "SKIP: {$filename} (already applied)\n";
-        $skipped++;
-        continue;
+    if ($pdo->inTransaction()) {
+        $pdo->rollBack();
     }
-
-    echo "APPLYING: {$filename}...\n";
-
-    try {
-        // Read and execute migration
-        $sql = file_get_contents($file);
-
-        // Split by semicolon and execute each statement
-        // (PDO doesn't support multiple statements in one execute)
-        $statements = array_filter(
-            array_map('trim', explode(';', $sql)),
-            fn($s) => !empty($s) && !str_starts_with($s, '--')
-        );
-
-        $pdo->beginTransaction();
-
-        foreach ($statements as $statement) {
-            if (!empty(trim($statement))) {
-                $pdo->exec($statement);
-            }
-        }
-
-        // Record migration as applied
-        $stmt = $pdo->prepare("INSERT INTO migrations (migration) VALUES (?)");
-        $stmt->execute([$filename]);
-
-        $pdo->commit();
-
-        echo "SUCCESS: {$filename}\n";
-        $applied++;
-
-    } catch (PDOException $e) {
-        if ($pdo->inTransaction()) {
-            $pdo->rollBack();
-        }
-        echo "FAILED: {$filename}\n";
-        echo "Error: " . $e->getMessage() . "\n";
-        exit(1);
-    }
+    echo "FAILED!\n";
+    echo "Error: " . $e->getMessage() . "\n";
 }
-
-echo "\n";
-echo "Migration complete.\n";
-echo "Applied: {$applied}, Skipped: {$skipped}\n";

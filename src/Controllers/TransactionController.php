@@ -20,7 +20,7 @@ class TransactionController extends BaseController
 
     public function __construct(Twig $twig, Database $db)
     {
-        parent::__construct($twig);
+        parent::__construct($twig, $db);
         $this->db = $db;
     }
 
@@ -31,12 +31,27 @@ class TransactionController extends BaseController
     {
         $month = $args['month'] ?? date('Y-m');
         $queryParams = $request->getQueryParams();
-
         $householdId = $this->householdId();
+        $entityId = EntityController::getCurrentEntityId();
+
+        // If no entity selected, default to first personal one (handled in BaseController usually, but fallback here)
+        if (!$entityId) {
+            $entity = $this->db->fetch("SELECT id FROM entities WHERE household_id = ? AND type = 'personal' LIMIT 1", [$householdId]);
+            if ($entity) {
+                EntityController::setCurrentEntityId((int) $entity['id']);
+                $entityId = (int) $entity['id'];
+            }
+        }
 
         // Build query
         $where = ['t.household_id = ?'];
         $params = [$householdId];
+
+        // Filter by Entity
+        if ($entityId) {
+            $where[] = 't.entity_id = ?';
+            $params[] = $entityId;
+        }
 
         // Filter by month (use date range)
         $startDate = $month . '-01';
@@ -50,6 +65,12 @@ class TransactionController extends BaseController
         if (!empty($queryParams['category'])) {
             $where[] = 't.category_id = ?';
             $params[] = (int) $queryParams['category'];
+        }
+
+        // Filter by account
+        if (!empty($queryParams['account'])) {
+            $where[] = 't.account_id = ?';
+            $params[] = (int) $queryParams['account'];
         }
 
         // Filter by payee
@@ -67,17 +88,24 @@ class TransactionController extends BaseController
         $whereClause = implode(' AND ', $where);
 
         $transactions = $this->db->fetchAll(
-            "SELECT t.*, c.name as category_name, cg.name as group_name
+            "SELECT t.*, c.name as category_name, cg.name as group_name, a.name as account_name
              FROM transactions t
              LEFT JOIN categories c ON c.id = t.category_id
              LEFT JOIN category_groups cg ON cg.id = c.category_group_id
+             LEFT JOIN accounts a ON a.id = t.account_id
              WHERE {$whereClause}
              ORDER BY t.date DESC, t.id DESC",
             $params
         );
 
         // Get categories for filter dropdown
-        $categories = $this->getCategories($householdId);
+        $categories = $this->getCategories($householdId, $entityId);
+
+        // Get accounts for filter dropdown
+        $accounts = $this->db->fetchAll(
+            "SELECT id, name FROM accounts WHERE entity_id = ? AND archived = 0 ORDER BY type, name",
+            [$entityId]
+        );
 
         // Get previous and next months
         $prevMonth = date('Y-m', strtotime($month . '-01 -1 month'));
@@ -90,6 +118,7 @@ class TransactionController extends BaseController
             'next_month' => $nextMonth,
             'transactions' => $transactions,
             'categories' => $categories,
+            'accounts' => $accounts,
             'filters' => $queryParams,
         ]);
     }
@@ -101,20 +130,29 @@ class TransactionController extends BaseController
     {
         $month = $args['month'] ?? date('Y-m');
         $householdId = $this->householdId();
+        $entityId = EntityController::getCurrentEntityId();
 
         $startDate = $month . '-01';
         $endDate = date('Y-m-t', strtotime($startDate));
 
+        $where = ['household_id = ?', 'category_id IS NULL', 'date >= ?', 'date <= ?'];
+        $params = [$householdId, $startDate, $endDate];
+
+        if ($entityId) {
+            $where[] = 'entity_id = ?';
+            $params[] = $entityId;
+        }
+
+        $whereStr = implode(' AND ', $where);
+
         $transactions = $this->db->fetchAll(
             "SELECT * FROM transactions 
-             WHERE household_id = ? 
-             AND category_id IS NULL
-             AND date >= ? AND date <= ?
+             WHERE {$whereStr}
              ORDER BY date DESC, id DESC",
-            [$householdId, $startDate, $endDate]
+            $params
         );
 
-        $categories = $this->getCategories($householdId);
+        $categories = $this->getCategories($householdId, $entityId);
 
         return $this->render($response, 'transactions/uncategorized.twig', [
             'month' => $month,
@@ -131,6 +169,8 @@ class TransactionController extends BaseController
     {
         $data = (array) $request->getParsedBody();
         $householdId = $this->householdId();
+        $entityId = EntityController::getCurrentEntityId();
+        $userId = $this->userId();
 
         $date = $data['date'] ?? date('Y-m-d');
         $type = $data['type'] ?? 'expense';
@@ -138,6 +178,7 @@ class TransactionController extends BaseController
         $payee = trim($data['payee'] ?? '');
         $memo = trim($data['memo'] ?? '');
         $categoryId = !empty($data['category_id']) ? (int) $data['category_id'] : null;
+        $accountId = !empty($data['account_id']) ? (int) $data['account_id'] : null;
 
         // Validate
         $errors = [];
@@ -147,6 +188,9 @@ class TransactionController extends BaseController
         if ($amount <= 0) {
             $errors[] = 'Amount must be greater than 0.';
         }
+        if (!$entityId && isset($data['entity_id'])) {
+            $entityId = (int) $data['entity_id'];
+        }
 
         $month = substr($date, 0, 7);
 
@@ -155,10 +199,10 @@ class TransactionController extends BaseController
             return $this->redirect($response, "/transactions/{$month}");
         }
 
-        // Verify category belongs to household if provided
+        // Verify category belongs to household/entity if provided
         if ($categoryId) {
             $category = $this->db->fetch(
-                "SELECT c.id FROM categories c
+                "SELECT c.id, c.name FROM categories c
                  JOIN category_groups cg ON cg.id = c.category_group_id
                  WHERE c.id = ? AND cg.household_id = ?",
                 [$categoryId, $householdId]
@@ -170,13 +214,14 @@ class TransactionController extends BaseController
 
         // Get or create budget month
         $budgetMonth = $this->db->fetch(
-            "SELECT id FROM budget_months WHERE household_id = ? AND month_yyyymm = ?",
-            [$householdId, $month]
+            "SELECT id FROM budget_months WHERE household_id = ? AND entity_id = ? AND month_yyyymm = ?",
+            [$householdId, $entityId, $month]
         );
 
         if (!$budgetMonth) {
             $budgetMonthId = $this->db->insert('budget_months', [
                 'household_id' => $householdId,
+                'entity_id' => $entityId,
                 'month_yyyymm' => $month,
                 'created_at' => date('Y-m-d H:i:s'),
                 'updated_at' => date('Y-m-d H:i:s'),
@@ -185,9 +230,19 @@ class TransactionController extends BaseController
             $budgetMonthId = $budgetMonth['id'];
         }
 
-        // Store as positive cents, type determines if income or expense
-        $this->db->insert('transactions', [
+        // Check for Owner Draw intent
+        $isOwnerDraw = false;
+        if ($categoryId && isset($category['name'])) {
+            if (stripos($category['name'], 'Owner Draw') !== false) {
+                $isOwnerDraw = true;
+            }
+        }
+
+        // INSERT TRANSACTION
+        $transactionId = $this->db->insert('transactions', [
             'household_id' => $householdId,
+            'entity_id' => $entityId,
+            'account_id' => $accountId,
             'budget_month_id' => $budgetMonthId,
             'date' => $date,
             'amount_cents' => $amount,
@@ -197,8 +252,86 @@ class TransactionController extends BaseController
             'category_id' => $categoryId,
             'created_at' => date('Y-m-d H:i:s'),
             'updated_at' => date('Y-m-d H:i:s'),
-            'created_by_user_id' => $this->userId(),
+            'created_by_user_id' => $userId,
+            'is_transfer' => $isOwnerDraw ? 1 : 0,
         ]);
+
+        // Update Account Balance
+        if ($accountId) {
+            AccountController::updateBalanceForTransaction($this->db, $accountId, $amount, $type);
+        }
+
+        // HANDLE OWNER DRAW LINKING
+        // If this is an LLC expense categorised as "Owner Draw", create matching Personal Income
+        if ($isOwnerDraw && $type === 'expense') {
+            // Find Personal Entity
+            $personalEntity = $this->db->fetch(
+                "SELECT id FROM entities WHERE household_id = ? AND type = 'personal' LIMIT 1",
+                [$householdId]
+            );
+
+            if ($personalEntity) {
+                // Find "Paycheck" or "Owner Draw" income category in Personal
+                $personalCat = $this->db->fetch(
+                    "SELECT c.id FROM categories c 
+                     JOIN category_groups cg ON cg.id = c.category_group_id
+                     WHERE cg.entity_id = ? AND (c.name LIKE '%Owner Draw%' OR c.name LIKE '%Paycheck%')
+                     LIMIT 1",
+                    [$personalEntity['id']]
+                );
+
+                // Ensure budget month exists for personal
+                $personalBudgetMonth = $this->db->fetch(
+                    "SELECT id FROM budget_months WHERE entity_id = ? AND month_yyyymm = ?",
+                    [$personalEntity['id'], $month]
+                );
+
+                if (!$personalBudgetMonth) {
+                    $personalBudgetMonthId = $this->db->insert('budget_months', [
+                        'household_id' => $householdId,
+                        'entity_id' => $personalEntity['id'],
+                        'month_yyyymm' => $month,
+                        'created_at' => date('Y-m-d H:i:s'),
+                        'updated_at' => date('Y-m-d H:i:s'),
+                    ]);
+                } else {
+                    $personalBudgetMonthId = $personalBudgetMonth['id'];
+                }
+
+                // Create Linked Personal Income Transaction
+                $personalTxId = $this->db->insert('transactions', [
+                    'household_id' => $householdId,
+                    'entity_id' => $personalEntity['id'],
+                    // Note: We don't verify which personal account it went to yet, unless we prompt user. 
+                    // For now leave account_id null or default? 
+                    // Better to leave null and let user categorize/assign account later if they want.
+                    'account_id' => null,
+                    'budget_month_id' => $personalBudgetMonthId,
+                    'date' => $date,
+                    'amount_cents' => $amount,
+                    'type' => 'income',
+                    'payee' => $payee . ' (Draw)',
+                    'memo' => 'Linked from LLC Owner Draw',
+                    'category_id' => $personalCat ? $personalCat['id'] : null,
+                    'is_transfer' => 1,
+                    'created_at' => date('Y-m-d H:i:s'),
+                    'updated_at' => date('Y-m-d H:i:s'),
+                    'created_by_user_id' => $userId,
+                ]);
+
+                // Create Link Record
+                $this->db->insert('linked_transfers', [
+                    'from_transaction_id' => $transactionId,
+                    'to_transaction_id' => $personalTxId,
+                    'transfer_type' => 'owner_draw',
+                    'created_at' => date('Y-m-d H:i:s'),
+                ]);
+
+                $this->flash('success', 'Transaction added and Owner Draw linked to Personal Budget.');
+                $returnTo = $data['return_to'] ?? "/transactions/{$month}";
+                return $this->redirect($response, $returnTo);
+            }
+        }
 
         $this->flash('success', 'Transaction added.');
 
@@ -213,7 +346,7 @@ class TransactionController extends BaseController
     {
         $transactionId = (int) $args['id'];
         $householdId = $this->householdId();
-
+        // Allow editing across entities, as long as household owns it
         $transaction = $this->db->fetch(
             "SELECT * FROM transactions WHERE id = ? AND household_id = ?",
             [$transactionId, $householdId]
@@ -224,11 +357,17 @@ class TransactionController extends BaseController
             return $this->redirect($response, '/transactions/' . date('Y-m'));
         }
 
-        $categories = $this->getCategories($householdId);
+        $categories = $this->getCategories($householdId, $transaction['entity_id']);
+
+        $accounts = $this->db->fetchAll(
+            "SELECT id, name FROM accounts WHERE entity_id = ? AND archived = 0 ORDER BY type, name",
+            [$transaction['entity_id']]
+        );
 
         return $this->render($response, 'transactions/edit.twig', [
             'transaction' => $transaction,
             'categories' => $categories,
+            'accounts' => $accounts,
         ]);
     }
 
@@ -260,18 +399,35 @@ class TransactionController extends BaseController
         $categoryId = isset($data['category_id'])
             ? (!empty($data['category_id']) ? (int) $data['category_id'] : null)
             : $transaction['category_id'];
+        $accountId = isset($data['account_id'])
+            ? (!empty($data['account_id']) ? (int) $data['account_id'] : null)
+            : $transaction['account_id'];
+
+        // Balance Adjustment if amount or account changed
+        $amountDiff = $amount - $transaction['amount_cents'];
+        $oldAccountId = $transaction['account_id'];
+
+        // Revert old transaction effect
+        if ($oldAccountId) {
+            AccountController::updateBalanceForTransaction($this->db, $oldAccountId, -$transaction['amount_cents'], $transaction['type']); // Reverse
+        }
+
+        // Apply new transaction effect (will happen after update or we can calculate net)
+        // Easier to just revert old and apply new to keep logic simple
 
         $month = substr($date, 0, 7);
 
         // Get budget month
         $budgetMonth = $this->db->fetch(
-            "SELECT id FROM budget_months WHERE household_id = ? AND month_yyyymm = ?",
-            [$householdId, $month]
+            "SELECT id FROM budget_months WHERE household_id = ? AND entity_id = ? AND month_yyyymm = ?",
+            [$householdId, $transaction['entity_id'], $month]
         );
 
         if (!$budgetMonth) {
+            // ... (create if needed, usually exists)
             $budgetMonthId = $this->db->insert('budget_months', [
                 'household_id' => $householdId,
+                'entity_id' => $transaction['entity_id'],
                 'month_yyyymm' => $month,
                 'created_at' => date('Y-m-d H:i:s'),
                 'updated_at' => date('Y-m-d H:i:s'),
@@ -288,8 +444,25 @@ class TransactionController extends BaseController
             'payee' => $payee,
             'memo' => $memo ?: null,
             'category_id' => $categoryId,
+            'account_id' => $accountId,
             'updated_at' => date('Y-m-d H:i:s'),
         ], 'id = ?', [$transactionId]);
+
+        // Apply new balance effect
+        if ($accountId) {
+            AccountController::updateBalanceForTransaction($this->db, $accountId, $amount, $type);
+        }
+
+        // UPDATE LINKED TRANSACTION IF EXISTS
+        $link = $this->db->fetch("SELECT to_transaction_id FROM linked_transfers WHERE from_transaction_id = ?", [$transactionId]);
+        if ($link) {
+            $this->db->update('transactions', [
+                'date' => $date,
+                'amount_cents' => $amount, // Sync amount
+                'payee' => $payee . ' (Draw)',
+                'updated_at' => date('Y-m-d H:i:s'),
+            ], 'id = ?', [$link['to_transaction_id']]);
+        }
 
         $this->flash('success', 'Transaction updated.');
 
@@ -310,7 +483,14 @@ class TransactionController extends BaseController
         );
 
         if ($transaction) {
+            // Revert balance
+            if ($transaction['account_id']) {
+                AccountController::updateBalanceForTransaction($this->db, $transaction['account_id'], -$transaction['amount_cents'], $transaction['type']);
+            }
+
             $this->db->delete('transactions', 'id = ?', [$transactionId]);
+            // Linked transactions cascade delete via FK
+
             $this->flash('success', 'Transaction deleted.');
             $month = substr($transaction['date'], 0, 7);
         } else {
@@ -372,16 +552,22 @@ class TransactionController extends BaseController
     /**
      * Get categories grouped for dropdowns
      */
-    private function getCategories(int $householdId): array
+    private function getCategories(int $householdId, ?int $entityId = null): array
     {
-        return $this->db->fetchAll(
-            "SELECT c.id, c.name, cg.name as group_name
+        $params = [$householdId];
+        $sql = "SELECT c.id, c.name, cg.name as group_name
              FROM categories c
              JOIN category_groups cg ON cg.id = c.category_group_id
-             WHERE cg.household_id = ? AND c.archived = 0
-             ORDER BY cg.sort_order, c.sort_order",
-            [$householdId]
-        );
+             WHERE cg.household_id = ? AND c.archived = 0";
+
+        if ($entityId) {
+            $sql .= " AND cg.entity_id = ?";
+            $params[] = $entityId;
+        }
+
+        $sql .= " ORDER BY cg.sort_order, c.sort_order";
+
+        return $this->db->fetchAll($sql, $params);
     }
 
     /**

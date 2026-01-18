@@ -1,0 +1,91 @@
+{% extends "layout.twig" %}
+
+{% block title %}Edit Account - {{ app_name }}{% endblock %}
+
+{% block content %}
+<div class="max-w-2xl mx-auto">
+    <div class="flex items-center space-x-4 mb-6">
+        <a href="{{ base_path('/accounts') }}" class="text-gray-400 hover:text-white">
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/>
+            </svg>
+        </a>
+        <h1 class="text-2xl font-bold text-white">Edit Account: {{ account.name }}</h1>
+    </div>
+
+    <!-- Edit Details Form -->
+    <div class="bg-gray-800 rounded-xl p-6 border border-gray-700 shadow-sm mb-8">
+        <h2 class="text-lg font-medium text-white mb-4">Account Details</h2>
+        <form action="{{ base_path('/accounts/' ~ account.id ~ '/update') }}" method="POST" class="space-y-6">
+            {{ csrf_field()|raw }}
+
+            <!-- Name -->
+            <div>
+                <label for="name" class="block text-sm font-medium text-gray-300">Account Name</label>
+                <input type="text" name="name" id="name" required value="{{ account.name }}"
+                       class="mt-1 block w-full rounded-md bg-gray-900 border-gray-600 text-white shadow-sm focus:border-emerald-500 focus:ring-emerald-500 sm:text-sm px-4 py-2">
+            </div>
+
+            <!-- Type -->
+            <div>
+                <label for="type" class="block text-sm font-medium text-gray-300">Account Type</label>
+                <select name="type" id="type" required
+                        class="mt-1 block w-full rounded-md bg-gray-900 border-gray-600 text-white shadow-sm focus:border-emerald-500 focus:ring-emerald-500 sm:text-sm px-4 py-2">
+                    <option value="checking" {% if account.type == 'checking' %}selected{% endif %}>Checking</option>
+                    <option value="savings" {% if account.type == 'savings' %}selected{% endif %}>Savings</option>
+                    <option value="credit" {% if account.type == 'credit' %}selected{% endif %}>Credit Card</option>
+                    <option value="cash" {% if account.type == 'cash' %}selected{% endif %}>Cash</option>
+                </select>
+            </div>
+
+            <!-- Submit -->
+            <div class="flex justify-end pt-4 space-x-3">
+                <a href="{{ base_path('/accounts') }}" class="btn btn-secondary">Cancel</a>
+                <button type="submit" class="btn btn-primary">
+                    Save Changes
+                </button>
+            </div>
+        </form>
+    </div>
+
+    <!-- Manual Balance Adjustment Form -->
+    <div class="bg-gray-800 rounded-xl p-6 border border-gray-700 shadow-sm">
+        <h2 class="text-lg font-medium text-white mb-4">Adjust Balance</h2>
+        <p class="text-gray-400 text-sm mb-4">Manually update the balance if it's out of sync. This creates an adjustment transaction.</p>
+        
+        <form action="{{ base_path('/accounts/' ~ account.id ~ '/adjust') }}" method="POST" class="space-y-6">
+            {{ csrf_field()|raw }}
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <!-- Current Balance (Display) -->
+                <div>
+                    <label class="block text-sm font-medium text-gray-400">Current Balance</label>
+                    <div class="mt-2 text-xl font-bold {% if account.balance_cents < 0 %}text-red-400{% else %}text-emerald-400{% endif %}">
+                        ${{ (account.balance_cents / 100)|number_format(2) }}
+                    </div>
+                </div>
+
+                <!-- New Balance -->
+                <div>
+                    <label for="new_balance" class="block text-sm font-medium text-gray-300">New Balance</label>
+                    <div class="mt-1 relative rounded-md shadow-sm">
+                        <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                            <span class="text-gray-500 sm:text-sm">$</span>
+                        </div>
+                        <input type="number" name="new_balance" id="new_balance" step="0.01" required
+                               placeholder="0.00"
+                               class="block w-full pl-7 pr-12 rounded-md bg-gray-900 border-gray-600 text-white focus:border-emerald-500 focus:ring-emerald-500 sm:text-sm px-4 py-2">
+                    </div>
+                </div>
+            </div>
+
+            <!-- Submit -->
+            <div class="flex justify-end pt-4">
+                <button type="submit" class="btn btn-secondary text-sm">
+                    Update Balance
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

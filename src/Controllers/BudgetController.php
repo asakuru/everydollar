@@ -16,12 +16,9 @@ use Slim\Views\Twig;
 
 class BudgetController extends BaseController
 {
-    private Database $db;
-
     public function __construct(Twig $twig, Database $db)
     {
-        parent::__construct($twig);
-        $this->db = $db;
+        parent::__construct($twig, $db);
     }
 
     /**

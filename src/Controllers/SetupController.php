@@ -18,13 +18,11 @@ use Slim\Views\Twig;
 class SetupController extends BaseController
 {
     private AuthService $authService;
-    private Database $db;
 
     public function __construct(Twig $twig, AuthService $authService, Database $db)
     {
-        parent::__construct($twig);
+        parent::__construct($twig, $db);
         $this->authService = $authService;
-        $this->db = $db;
     }
 
     /**
