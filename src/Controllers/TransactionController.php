@@ -169,78 +169,78 @@ class TransactionController extends BaseController
         ini_set('display_startup_errors', '1');
         error_reporting(E_ALL);
 
-        $data = (array) $request->getParsedBody();
-        $householdId = $this->householdId();
-        $entityId = EntityController::getCurrentEntityId();
-        $userId = $this->userId();
-
-        $date = $data['date'] ?? date('Y-m-d');
-        $type = $data['type'] ?? 'expense';
-        $amount = $this->parseMoney($data['amount'] ?? '0');
-        $payee = trim($data['payee'] ?? '');
-        $memo = trim($data['memo'] ?? '');
-        $categoryId = !empty($data['category_id']) ? (int) $data['category_id'] : null;
-        $accountId = !empty($data['account_id']) ? (int) $data['account_id'] : null;
-
-        // Validate
-        $errors = [];
-        if (empty($payee)) {
-            $errors[] = 'Payee is required.';
-        }
-        if ($amount <= 0) {
-            $errors[] = 'Amount must be greater than 0.';
-        }
-        if (!$entityId && isset($data['entity_id'])) {
-            $entityId = (int) $data['entity_id'];
-        }
-
-        $month = substr($date, 0, 7);
-
-        if (!empty($errors)) {
-            $this->flash('error', implode(' ', $errors));
-            return $this->redirect($response, "/transactions/{$month}");
-        }
-
-        // Verify category belongs to household/entity if provided
-        if ($categoryId) {
-            $category = $this->db->fetch(
-                "SELECT c.id, c.name FROM categories c
-                 JOIN category_groups cg ON cg.id = c.category_group_id
-                 WHERE c.id = ? AND cg.household_id = ?",
-                [$categoryId, $householdId]
-            );
-            if (!$category) {
-                $categoryId = null;
-            }
-        }
-
-        // Get or create budget month
-        $budgetMonth = $this->db->fetch(
-            "SELECT id FROM budget_months WHERE household_id = ? AND entity_id = ? AND month_yyyymm = ?",
-            [$householdId, $entityId, $month]
-        );
-
-        if (!$budgetMonth) {
-            $budgetMonthId = $this->db->insert('budget_months', [
-                'household_id' => $householdId,
-                'entity_id' => $entityId,
-                'month_yyyymm' => $month,
-                'created_at' => date('Y-m-d H:i:s'),
-                'updated_at' => date('Y-m-d H:i:s'),
-            ]);
-        } else {
-            $budgetMonthId = $budgetMonth['id'];
-        }
-
-        // Check for Owner Draw intent
-        $isOwnerDraw = false;
-        if ($categoryId && isset($category['name'])) {
-            if (stripos($category['name'], 'Owner Draw') !== false) {
-                $isOwnerDraw = true;
-            }
-        }
-
         try {
+            $data = (array) $request->getParsedBody();
+            $householdId = $this->householdId();
+            $entityId = EntityController::getCurrentEntityId();
+            $userId = $this->userId();
+
+            $date = $data['date'] ?? date('Y-m-d');
+            $type = $data['type'] ?? 'expense';
+            $amount = $this->parseMoney($data['amount'] ?? '0');
+            $payee = trim($data['payee'] ?? '');
+            $memo = trim($data['memo'] ?? '');
+            $categoryId = !empty($data['category_id']) ? (int) $data['category_id'] : null;
+            $accountId = !empty($data['account_id']) ? (int) $data['account_id'] : null;
+
+            // Validate
+            $errors = [];
+            if (empty($payee)) {
+                $errors[] = 'Payee is required.';
+            }
+            if ($amount <= 0) {
+                $errors[] = 'Amount must be greater than 0.';
+            }
+            if (!$entityId && isset($data['entity_id'])) {
+                $entityId = (int) $data['entity_id'];
+            }
+
+            $month = substr($date, 0, 7);
+
+            if (!empty($errors)) {
+                $this->flash('error', implode(' ', $errors));
+                return $this->redirect($response, "/transactions/{$month}");
+            }
+
+            // Verify category belongs to household/entity if provided
+            if ($categoryId) {
+                $category = $this->db->fetch(
+                    "SELECT c.id, c.name FROM categories c
+                     JOIN category_groups cg ON cg.id = c.category_group_id
+                     WHERE c.id = ? AND cg.household_id = ?",
+                    [$categoryId, $householdId]
+                );
+                if (!$category) {
+                    $categoryId = null;
+                }
+            }
+
+            // Get or create budget month
+            $budgetMonth = $this->db->fetch(
+                "SELECT id FROM budget_months WHERE household_id = ? AND entity_id = ? AND month_yyyymm = ?",
+                [$householdId, $entityId, $month]
+            );
+
+            if (!$budgetMonth) {
+                $budgetMonthId = $this->db->insert('budget_months', [
+                    'household_id' => $householdId,
+                    'entity_id' => $entityId,
+                    'month_yyyymm' => $month,
+                    'created_at' => date('Y-m-d H:i:s'),
+                    'updated_at' => date('Y-m-d H:i:s'),
+                ]);
+            } else {
+                $budgetMonthId = $budgetMonth['id'];
+            }
+
+            // Check for Owner Draw intent
+            $isOwnerDraw = false;
+            if ($categoryId && isset($category['name'])) {
+                if (stripos($category['name'], 'Owner Draw') !== false) {
+                    $isOwnerDraw = true;
+                }
+            }
+
             // INSERT TRANSACTION
             $transactionId = $this->db->insert('transactions', [
                 'household_id' => $householdId,
@@ -332,16 +332,17 @@ class TransactionController extends BaseController
                     return $this->redirect($response, $returnTo);
                 }
             }
+
+            $this->flash('success', 'Transaction added.');
+            $returnTo = $data['return_to'] ?? "/transactions/{$month}";
+            return $this->redirect($response, $returnTo);
+
         } catch (\Throwable $e) {
             // DEBUG OUTPUT IF DATABASE LOGGING FAILS
             echo "FATAL ERROR CAUGHT: " . $e->getMessage() . "<br><pre>" . $e->getTraceAsString() . "</pre>";
             die(); // Stop everything so user sees execution output
         }
-
-        $this->flash('success', 'Transaction added.');
-
-        $returnTo = $data['return_to'] ?? "/transactions/{$month}";
-        return $this->redirect($response, $returnTo);
+    }
     }
 
     /**
