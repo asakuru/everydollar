@@ -52,6 +52,14 @@ try {
 // 3. execute Fixes
 echo "Attempting to fix indices...<br>";
 
+// FIX 0: Create replacement index for Foreign Key support first!
+try {
+    $pdo->exec("CREATE INDEX idx_household_fk ON budget_months (household_id)");
+    echo "<span style='color:green'>SUCCESS: Created 'idx_household_fk' (FK Support)</span><br>";
+} catch (PDOException $e) {
+    echo "<span style='color:orange'>WARNING: Could not create 'idx_household_fk'. It might already exist. Error: " . $e->getMessage() . "</span><br>";
+}
+
 // FIX 1: Drop old idx_household_month
 try {
     $pdo->exec("DROP INDEX idx_household_month ON budget_months");
