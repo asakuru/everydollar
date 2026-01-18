@@ -309,16 +309,36 @@ class TransactionController extends BaseController
                 if ($personalEntity) {
                     // Find "Paycheck" or "Owner Draw" income category in Personal
                     // Fallback: Any category in an "Income" group
+                    // Fallback 2: Any first category found for the entity (better than Uncategorized)
+
+                    // 1. Try Specific Matches
                     $personalCat = $this->db->fetch(
                         "SELECT c.id FROM categories c 
                          JOIN category_groups cg ON cg.id = c.category_group_id
                          WHERE cg.entity_id = ? 
-                         AND (c.name LIKE '%Owner Draw%' OR c.name LIKE '%Paycheck%' OR cg.name LIKE '%Income%')
+                         AND (c.name LIKE '%Owner Draw%' OR c.name LIKE '%Paycheck%' OR cg.name = 'Income')
                          ORDER BY 
-                            CASE WHEN c.name LIKE '%Owner Draw%' THEN 1 WHEN c.name LIKE '%Paycheck%' THEN 2 ELSE 3 END
+                            CASE 
+                                WHEN c.name LIKE '%Owner Draw%' THEN 1 
+                                WHEN c.name LIKE '%Paycheck%' THEN 2 
+                                WHEN cg.name = 'Income' THEN 3
+                                ELSE 4 
+                            END
                          LIMIT 1",
                         [$personalEntity['id']]
                     );
+
+                    // 2. Fallback to ANYTHING if specific match fails
+                    if (!$personalCat) {
+                        $personalCat = $this->db->fetch(
+                            "SELECT c.id FROM categories c 
+                             JOIN category_groups cg ON cg.id = c.category_group_id
+                             WHERE cg.entity_id = ? 
+                             ORDER BY cg.sort_order ASC, c.sort_order ASC
+                             LIMIT 1",
+                            [$personalEntity['id']]
+                        );
+                    }
 
                     // Find Default Checking Account for Personal
                     $personalAccount = $this->db->fetch(
