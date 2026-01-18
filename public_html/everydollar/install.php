@@ -22,8 +22,8 @@ echo ".success{color:#4ade80;}.error{color:#f87171;}.warning{color:#facc15;}pre{
 echo "</head><body>";
 echo "<h1>EveryDollar Installer</h1>";
 
-// Define paths
-$repoRoot = dirname(__DIR__, 2); // Go up from public_html/everydollar to repo root
+// Define paths - use actual repository location, not deployed location
+$repoRoot = '/home/ravenscv/repositories/everydollar';
 echo "<p>Repository root: <code>{$repoRoot}</code></p>";
 
 // Step 1: Check PHP version
