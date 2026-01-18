@@ -164,9 +164,16 @@ foreach ($migrationFiles as $file) {
 
     try {
         $sql = file_get_contents($file);
+
+        // Remove comment lines first (lines starting with --)
+        $lines = explode("\n", $sql);
+        $lines = array_filter($lines, fn($line) => !str_starts_with(trim($line), '--'));
+        $sql = implode("\n", $lines);
+
+        // Now split by semicolons and filter empty
         $statements = array_filter(
             array_map('trim', explode(';', $sql)),
-            fn($s) => !empty($s) && !str_starts_with(trim($s), '--')
+            fn($s) => !empty($s)
         );
 
         $count = count($statements);
