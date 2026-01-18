@@ -164,11 +164,6 @@ class TransactionController extends BaseController
      */
     public function create(Request $request, Response $response): Response
     {
-        // DEBUG: Force show errors for 500 investigation
-        ini_set('display_errors', '1');
-        ini_set('display_startup_errors', '1');
-        error_reporting(E_ALL);
-
         try {
             $data = (array) $request->getParsedBody();
             $householdId = $this->householdId();
@@ -313,13 +308,24 @@ class TransactionController extends BaseController
 
                 if ($personalEntity) {
                     // Find "Paycheck" or "Owner Draw" income category in Personal
+                    // Fallback: Any category in an "Income" group
                     $personalCat = $this->db->fetch(
                         "SELECT c.id FROM categories c 
                          JOIN category_groups cg ON cg.id = c.category_group_id
-                         WHERE cg.entity_id = ? AND (c.name LIKE '%Owner Draw%' OR c.name LIKE '%Paycheck%')
+                         WHERE cg.entity_id = ? 
+                         AND (c.name LIKE '%Owner Draw%' OR c.name LIKE '%Paycheck%' OR cg.name LIKE '%Income%')
+                         ORDER BY 
+                            CASE WHEN c.name LIKE '%Owner Draw%' THEN 1 WHEN c.name LIKE '%Paycheck%' THEN 2 ELSE 3 END
                          LIMIT 1",
                         [$personalEntity['id']]
                     );
+
+                    // Find Default Checking Account for Personal
+                    $personalAccount = $this->db->fetch(
+                        "SELECT id FROM accounts WHERE entity_id = ? AND type = 'checking' AND archived = 0 ORDER BY id ASC LIMIT 1",
+                        [$personalEntity['id']]
+                    );
+                    $personalAccountId = $personalAccount['id'] ?? null;
 
                     // Ensure budget month exists for personal
                     $personalBudgetMonth = $this->db->fetch(
@@ -343,7 +349,7 @@ class TransactionController extends BaseController
                     $personalTxId = $this->db->insert('transactions', [
                         'household_id' => $householdId,
                         'entity_id' => $personalEntity['id'],
-                        'account_id' => null,
+                        'account_id' => $personalAccountId,
                         'budget_month_id' => $personalBudgetMonthId,
                         'date' => $date,
                         'amount_cents' => $amount,
@@ -356,6 +362,11 @@ class TransactionController extends BaseController
                         'updated_at' => date('Y-m-d H:i:s'),
                         'created_by_user_id' => $userId,
                     ]);
+
+                    // Update Balance for Linked Account
+                    if ($personalAccountId) {
+                        AccountController::updateBalanceForTransaction($this->db, (int) $personalAccountId, $amount, 'income');
+                    }
 
                     // Create Link Record
                     $this->db->insert('linked_transfers', [
@@ -376,9 +387,10 @@ class TransactionController extends BaseController
             return $this->redirect($response, $returnTo);
 
         } catch (\Throwable $e) {
-            // DEBUG OUTPUT IF DATABASE LOGGING FAILS
-            echo "FATAL ERROR CAUGHT: " . $e->getMessage() . "<br><pre>" . $e->getTraceAsString() . "</pre>";
-            die(); // Stop everything so user sees execution output
+            // Log error (if logger available) or just flash generic message
+            $this->flash('error', 'Error creating transaction: ' . $e->getMessage());
+            $month = isset($data['date']) ? substr($data['date'], 0, 7) : date('Y-m');
+            return $this->redirect($response, "/transactions/{$month}");
         }
     }
 
