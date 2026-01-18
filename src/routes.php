@@ -18,6 +18,7 @@ use App\Controllers\CategoryController;
 use App\Controllers\ReportsController;
 use App\Controllers\SettingsController;
 use App\Controllers\InviteController;
+use App\Controllers\ImportController;
 use App\Middleware\AuthMiddleware;
 
 /** @var App $app */
@@ -70,6 +71,11 @@ $app->group('', function (RouteCollectorProxy $group) {
     $group->post('/transaction/{id}/update', [TransactionController::class, 'update']);
     $group->post('/transaction/{id}/delete', [TransactionController::class, 'delete']);
     $group->post('/transaction/{id}/categorize', [TransactionController::class, 'quickCategorize']);
+
+    // Import Routes
+    $group->get('/import', [ImportController::class, 'showForm'])->setName('import');
+    $group->post('/import/preview', [ImportController::class, 'preview']);
+    $group->post('/import/confirm', [ImportController::class, 'import']);
 
     // Reports
     $group->get('/reports', [ReportsController::class, 'index'])->setName('reports');

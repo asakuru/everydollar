@@ -24,6 +24,7 @@ use App\Services\Database;
 use App\Services\AuthService;
 use App\Services\RateLimiter;
 use App\Services\TotpService;
+use App\Services\CsvParserService;
 
 // Build DI Container
 $containerBuilder = new ContainerBuilder();
@@ -106,6 +107,11 @@ $containerBuilder->addDefinitions([
         // TOTP Service (placeholder for 2FA)
     TotpService::class => function (ContainerInterface $c) {
         return new TotpService($c->get('config'));
+    },
+
+        // CSV Parser Service
+    CsvParserService::class => function (ContainerInterface $c) {
+        return new CsvParserService();
     },
 
         // Twig

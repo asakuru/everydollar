@@ -1,0 +1,77 @@
+{% extends "layout.twig" %}
+
+{% block title %}Import Transactions - {{ app_name }}{% endblock %}
+
+{% block content %}
+<div class="max-w-2xl mx-auto space-y-6">
+    <h1 class="text-2xl font-bold text-white">Import Transactions</h1>
+    
+    <!-- Upload Form -->
+    <div class="bg-gray-800 rounded-xl border border-gray-700 p-6">
+        <h2 class="text-lg font-semibold text-white mb-4">Upload CSV File</h2>
+        
+        <form method="POST" action="{{ base_path('/import/preview') }}" enctype="multipart/form-data" class="space-y-5">
+            {{ csrf_field()|raw }}
+            
+            <div>
+                <label class="block text-sm text-gray-400 mb-2">Bank/Credit Union Format</label>
+                <select name="format" 
+                        class="w-full px-4 py-2 bg-gray-900 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-emerald-500">
+                    {% for key, name in formats %}
+                    <option value="{{ key }}">{{ name }}</option>
+                    {% endfor %}
+                </select>
+                <p class="mt-1 text-xs text-gray-500">Select your bank, or use Auto-detect</p>
+            </div>
+            
+            <div>
+                <label class="block text-sm text-gray-400 mb-2">CSV File</label>
+                <div class="relative">
+                    <input type="file" 
+                           name="csv_file" 
+                           accept=".csv,.txt"
+                           required
+                           class="w-full px-4 py-3 bg-gray-900 border border-gray-600 rounded-lg text-white file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:bg-emerald-600 file:text-white file:font-medium hover:file:bg-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500">
+                </div>
+                <p class="mt-1 text-xs text-gray-500">Download your transactions as CSV from your bank's website</p>
+            </div>
+            
+            <button type="submit" 
+                    class="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-semibold py-3 px-4 rounded-lg transition-colors">
+                Preview Import
+            </button>
+        </form>
+    </div>
+    
+    <!-- Instructions -->
+    <div class="bg-gray-800 rounded-xl border border-gray-700 p-6">
+        <h2 class="text-lg font-semibold text-white mb-4">How to Export from Your Bank</h2>
+        
+        <div class="space-y-4">
+            <div>
+                <h3 class="font-medium text-emerald-400 mb-2">Corning Credit Union</h3>
+                <ol class="text-sm text-gray-400 list-decimal list-inside space-y-1">
+                    <li>Log into online banking</li>
+                    <li>Go to your account history</li>
+                    <li>Click "Export" or "Download"</li>
+                    <li>Select CSV format</li>
+                    <li>Choose your date range and download</li>
+                </ol>
+            </div>
+            
+            <hr class="border-gray-700">
+            
+            <div>
+                <h3 class="font-medium text-emerald-400 mb-2">Visions Federal Credit Union</h3>
+                <ol class="text-sm text-gray-400 list-decimal list-inside space-y-1">
+                    <li>Log into online banking</li>
+                    <li>Select your account</li>
+                    <li>Look for "Export Transactions" option</li>
+                    <li>Choose CSV as the format</li>
+                    <li>Set your date range and export</li>
+                </ol>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

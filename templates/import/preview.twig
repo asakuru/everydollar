@@ -1,0 +1,143 @@
+{% extends "layout.twig" %}
+
+{% block title %}Preview Import - {{ app_name }}{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+    <div class="flex items-center justify-between">
+        <div>
+            <h1 class="text-2xl font-bold text-white">Preview Import</h1>
+            <p class="text-gray-400">Detected format: {{ format_name }}</p>
+        </div>
+        <a href="{{ base_path('/import') }}" 
+           class="px-4 py-2 text-sm bg-gray-700 hover:bg-gray-600 text-gray-300 rounded-lg transition-colors">
+            ← Back
+        </a>
+    </div>
+    
+    {% if errors|length > 0 %}
+    <div class="bg-yellow-900/30 border border-yellow-700 rounded-lg px-4 py-3">
+        <p class="text-yellow-400 font-medium mb-2">Some rows had issues:</p>
+        <ul class="list-disc list-inside text-yellow-400 text-sm">
+            {% for error in errors %}
+            <li>{{ error }}</li>
+            {% endfor %}
+        </ul>
+    </div>
+    {% endif %}
+    
+    <!-- Summary -->
+    <div class="grid grid-cols-2 gap-4">
+        <div class="bg-gray-800 rounded-xl p-5 border border-gray-700">
+            <p class="text-sm text-gray-400 mb-1">New Transactions</p>
+            <p class="text-2xl font-bold text-emerald-400">{{ total_new }}</p>
+        </div>
+        <div class="bg-gray-800 rounded-xl p-5 border border-gray-700">
+            <p class="text-sm text-gray-400 mb-1">Duplicates Skipped</p>
+            <p class="text-2xl font-bold text-gray-400">{{ total_duplicates }}</p>
+        </div>
+    </div>
+    
+    {% if transactions|length > 0 %}
+    <form method="POST" action="{{ base_path('/import/confirm') }}">
+        {{ csrf_field()|raw }}
+        
+        <div class="bg-gray-800 rounded-xl border border-gray-700 overflow-hidden">
+            <div class="px-5 py-4 border-b border-gray-700 flex justify-between items-center">
+                <h2 class="text-lg font-semibold text-white">Transactions to Import</h2>
+                <label class="flex items-center space-x-2 text-sm text-gray-400">
+                    <input type="checkbox" id="selectAll" checked 
+                           class="rounded bg-gray-900 border-gray-600 text-emerald-500 focus:ring-emerald-500">
+                    <span>Select All</span>
+                </label>
+            </div>
+            
+            <table class="w-full">
+                <thead class="bg-gray-850">
+                    <tr class="text-left text-sm text-gray-400">
+                        <th class="px-5 py-3 w-10"></th>
+                        <th class="px-5 py-3 font-medium">Date</th>
+                        <th class="px-5 py-3 font-medium">Payee</th>
+                        <th class="px-5 py-3 font-medium text-right">Amount</th>
+                        <th class="px-5 py-3 font-medium">Category</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-700">
+                    {% for idx, tx in transactions %}
+                    <tr class="hover:bg-gray-750">
+                        <td class="px-5 py-3">
+                            <input type="checkbox" name="selected[]" value="{{ idx }}" checked
+                                   class="transaction-checkbox rounded bg-gray-900 border-gray-600 text-emerald-500 focus:ring-emerald-500">
+                        </td>
+                        <td class="px-5 py-3 text-gray-300">{{ tx.date|date("M j, Y") }}</td>
+                        <td class="px-5 py-3 text-white">{{ tx.payee }}</td>
+                        <td class="px-5 py-3 text-right font-medium {% if tx.type == 'income' %}text-emerald-400{% else %}text-white{% endif %}">
+                            {% if tx.type == 'income' %}+{% else %}-{% endif %}${{ "%.2f"|format(tx.amount_cents / 100) }}
+                        </td>
+                        <td class="px-5 py-3">
+                            <select name="category[{{ idx }}]"
+                                    class="w-full px-2 py-1 bg-gray-900 border border-gray-600 rounded text-white text-sm focus:outline-none focus:ring-1 focus:ring-emerald-500">
+                                <option value="">-- Uncategorized --</option>
+                                {% set current_group = '' %}
+                                {% for cat in categories %}
+                                    {% if cat.group_name != current_group %}
+                                        {% if current_group != '' %}</optgroup>{% endif %}
+                                        <optgroup label="{{ cat.group_name }}">
+                                        {% set current_group = cat.group_name %}
+                                    {% endif %}
+                                    <option value="{{ cat.id }}">{{ cat.name }}</option>
+                                {% endfor %}
+                                {% if current_group != '' %}</optgroup>{% endif %}
+                            </select>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        
+        <div class="flex justify-end mt-6">
+            <button type="submit" 
+                    class="px-6 py-3 bg-emerald-600 hover:bg-emerald-500 text-white font-semibold rounded-lg transition-colors">
+                Import Selected Transactions
+            </button>
+        </div>
+    </form>
+    {% else %}
+    <div class="bg-gray-800 rounded-xl border border-gray-700 p-8 text-center">
+        <p class="text-gray-400">No new transactions to import. All transactions in the file already exist.</p>
+        <a href="{{ base_path('/import') }}" 
+           class="inline-block mt-4 px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg transition-colors">
+            Upload Another File
+        </a>
+    </div>
+    {% endif %}
+    
+    {% if duplicates|length > 0 %}
+    <details class="bg-gray-800 rounded-xl border border-gray-700 overflow-hidden">
+        <summary class="px-5 py-4 cursor-pointer text-gray-400 hover:text-white">
+            Show {{ total_duplicates }} skipped duplicate(s)
+        </summary>
+        <table class="w-full">
+            <tbody class="divide-y divide-gray-700">
+                {% for tx in duplicates %}
+                <tr class="text-gray-500">
+                    <td class="px-5 py-2">{{ tx.date|date("M j") }}</td>
+                    <td class="px-5 py-2">{{ tx.payee }}</td>
+                    <td class="px-5 py-2 text-right">${{ "%.2f"|format(tx.amount_cents / 100) }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </details>
+    {% endif %}
+</div>
+
+<script>
+document.getElementById('selectAll').addEventListener('change', function() {
+    document.querySelectorAll('.transaction-checkbox').forEach(cb => {
+        cb.checked = this.checked;
+    });
+});
+</script>
+{% endblock %}
