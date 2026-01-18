@@ -169,27 +169,21 @@ foreach ($migrationFiles as $file) {
             fn($s) => !empty($s) && !str_starts_with(trim($s), '--')
         );
 
-        $pdo->beginTransaction();
-
+        // Execute each statement (no transaction - DDL auto-commits in MySQL)
         foreach ($statements as $statement) {
             if (!empty(trim($statement))) {
                 $pdo->exec($statement);
             }
         }
 
-        // Record migration
+        // Record migration (migrations table now exists after first migration)
         $stmt = $pdo->prepare("INSERT INTO migrations (migration) VALUES (?)");
         $stmt->execute([$filename]);
-
-        $pdo->commit();
 
         echo "<p class='success'>✓ SUCCESS: {$filename}</p>";
         $applied++;
 
     } catch (PDOException $e) {
-        if ($pdo->inTransaction()) {
-            $pdo->rollBack();
-        }
         echo "<p class='error'>✗ FAILED: {$filename} - " . htmlspecialchars($e->getMessage()) . "</p>";
         $errors[] = $filename;
     }
