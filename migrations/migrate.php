@@ -89,7 +89,26 @@ try {
     $pdo->beginTransaction();
 
     foreach ($statements as $stmt) {
-        $pdo->exec($stmt);
+        try {
+            $pdo->exec($stmt);
+        } catch (PDOException $e) {
+            // Check for "Duplicate column name" (1060) or "Table already exists" (1050)
+            // SQLSTATE 42S21 = Column already exists
+            // SQLSTATE 42S01 = Table already exists
+            if (
+                $e->getCode() == '42S21' ||
+                $e->getCode() == '42S01' ||
+                str_contains($e->getMessage(), 'Duplicate column name') ||
+                str_contains($e->getMessage(), 'already exists')
+            ) {
+                echo "Warning: Skipped duplicate/existing item.\n";
+                // Continue to next statement
+                continue;
+            }
+
+            // Re-throw other errors
+            throw $e;
+        }
     }
 
     $pdo->commit();
