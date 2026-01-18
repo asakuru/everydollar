@@ -38,6 +38,7 @@ if (version_compare($phpVersion, '8.1.0', '>=')) {
 // Step 2: Check for config file
 echo "<h2>Step 2: Check Configuration</h2>";
 $configPaths = [
+    '/home/ravenscv/config/everydollar/config.php',  // Production config location
     dirname($repoRoot) . '/config/everydollar/config.php',
     $repoRoot . '/config.php',
 ];

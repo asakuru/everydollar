@@ -15,16 +15,24 @@ define('ROOT_DIR', dirname(__DIR__, 2));
 // Composer autoloader
 require ROOT_DIR . '/vendor/autoload.php';
 
-// Load configuration
-$configPath = dirname(ROOT_DIR) . '/config/everydollar/config.php';
-if (!file_exists($configPath)) {
-    // Fallback to local config for development
-    $configPath = ROOT_DIR . '/config.php';
+// Load configuration - check multiple locations
+$configPaths = [
+    '/home/ravenscv/config/everydollar/config.php',  // Production config
+    dirname(ROOT_DIR) . '/config/everydollar/config.php',
+    ROOT_DIR . '/config.php',  // Development fallback
+];
+
+$configPath = null;
+foreach ($configPaths as $path) {
+    if (file_exists($path)) {
+        $configPath = $path;
+        break;
+    }
 }
 
-if (!file_exists($configPath)) {
+if (!$configPath) {
     http_response_code(500);
-    die('Configuration file not found. Please create config.php');
+    die('Configuration file not found. Please create config.php at /home/ravenscv/config/everydollar/config.php');
 }
 
 $config = require $configPath;
