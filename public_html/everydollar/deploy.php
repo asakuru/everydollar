@@ -46,7 +46,11 @@ $commands = [
     "echo 'Database: Running Migrations...'",
     "{$phpPath} migrations/migrate.php 2>&1",
 
-    // 5. Clear Cache
+    // 5. Deploy Files to Web Root
+    "echo 'Deploy: Copying files to web root...'",
+    "cp -R public_html/everydollar/. /home/ravenscv/fuzzysolution.com/everydollar/",
+
+    // 6. Clear Cache
     "echo 'System: Clearing Cache...'",
     "rm -rf storage/cache/twig/*",
     "echo 'Cache cleared.'"
