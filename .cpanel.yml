@@ -1,8 +1,19 @@
 ---
 deployment:
   tasks:
+    # Deploy public files
     - export DEPLOYPATH=/home/ravenscv/fuzzysolution.com/everydollar
     - /bin/mkdir -p $DEPLOYPATH
+    - /bin/mkdir -p $DEPLOYPATH/assets/css
     - /bin/cp -R public_html/everydollar/. $DEPLOYPATH/
-    - /bin/mkdir -p storage/logs storage/cache/twig
-    - /bin/chmod 755 storage storage/logs storage/cache storage/cache/twig
+    
+    # Create storage directories in repo
+    - /bin/mkdir -p /home/ravenscv/repositories/everydollar/storage/logs
+    - /bin/mkdir -p /home/ravenscv/repositories/everydollar/storage/cache/twig
+    - /bin/chmod 755 /home/ravenscv/repositories/everydollar/storage
+    - /bin/chmod 755 /home/ravenscv/repositories/everydollar/storage/logs
+    - /bin/chmod 755 /home/ravenscv/repositories/everydollar/storage/cache
+    - /bin/chmod 755 /home/ravenscv/repositories/everydollar/storage/cache/twig
+    
+    # Create import templates directory
+    - /bin/mkdir -p /home/ravenscv/repositories/everydollar/templates/import
