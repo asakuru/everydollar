@@ -17,3 +17,8 @@ deployment:
     
     # Create import templates directory
     - /bin/mkdir -p /home/ravenscv/repositories/everydollar/templates/import
+    - /bin/mkdir -p /home/ravenscv/repositories/everydollar/templates/entities
+    - /bin/mkdir -p /home/ravenscv/repositories/everydollar/templates/accounts
+    - /bin/mkdir -p /home/ravenscv/repositories/everydollar/templates/invoices
+    - /bin/mkdir -p /home/ravenscv/repositories/everydollar/templates/llc-dashboard
+    - /bin/mkdir -p /home/ravenscv/repositories/everydollar/templates/transactions
