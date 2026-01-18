@@ -86,7 +86,8 @@ try {
         fn($s) => !empty($s)
     );
 
-    $pdo->beginTransaction();
+    // MySQL DDL statements invoke implicit commit, so we cannot use a single transaction.
+    // We execute statements one by one.
 
     foreach ($statements as $stmt) {
         try {
@@ -119,14 +120,10 @@ try {
         }
     }
 
-    $pdo->commit();
     echo "Done!\n";
     echo "Success: Migration 002 applied successfully.\n";
 
 } catch (PDOException $e) {
-    if ($pdo->inTransaction()) {
-        $pdo->rollBack();
-    }
     echo "FAILED!\n";
     echo "Error: " . $e->getMessage() . "\n";
 }
