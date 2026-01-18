@@ -63,13 +63,13 @@ try {
 }
 
 // Migration Files
-$migrationFile = __DIR__ . '/002_multi_entity.sql';
+$migrationFile = __DIR__ . '/003_fix_budget_month_index.sql';
 
 if (!file_exists($migrationFile)) {
     die("Error: Migration file not found at {$migrationFile}\n");
 }
 
-echo "Running migration: 002_multi_entity.sql\n... ";
+echo "Running migration: 003_fix_budget_month_index.sql\n... ";
 
 try {
     // Read SQL
@@ -108,7 +108,8 @@ try {
                 str_contains($msg, 'Duplicate column name') ||
                 str_contains($msg, 'already exists') ||
                 str_contains($msg, 'Duplicate key') ||
-                str_contains($msg, 'errno: 121')
+                str_contains($msg, 'errno: 121') ||
+                str_contains($msg, "Check that column/key exists") // MySQL DROP INDEX error for non-existent
             ) {
                 echo "Warning: Skipped duplicate/existing item.\n";
                 // Continue to next statement
