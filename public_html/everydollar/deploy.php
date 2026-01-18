@@ -70,7 +70,7 @@ $commands = [
     "cd {$repoPath} && git reset --hard origin/main",
 
     // Composer: Install dependencies
-    "cd {$repoPath} && {$phpPath} {$composerPath} install --no-dev --optimize-autoloader",
+    "cd {$repoPath} && export COMPOSER_HOME={$repoPath} && {$phpPath} {$composerPath} install --no-dev --optimize-autoloader",
 
     // Database: Run Migrations
     "cd {$repoPath} && {$phpPath} migrations/migrate.php",
