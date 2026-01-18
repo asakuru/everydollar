@@ -1,0 +1,76 @@
+{% extends "layout.twig" %}
+
+{% block title %}Invite Member - {{ app_name }}{% endblock %}
+
+{% block content %}
+<div class="max-w-2xl mx-auto space-y-6">
+    <div class="flex items-center justify-between">
+        <h1 class="text-2xl font-bold text-white">Household Members</h1>
+        <a href="{{ base_path('/settings/security') }}" 
+           class="text-gray-400 hover:text-white transition-colors">
+            ← Back
+        </a>
+    </div>
+    
+    <!-- Current Members -->
+    <div class="bg-gray-800 rounded-xl border border-gray-700 overflow-hidden">
+        <div class="px-5 py-4 border-b border-gray-700">
+            <h2 class="text-lg font-semibold text-white">Members</h2>
+        </div>
+        <div class="divide-y divide-gray-700">
+            {% for member in members %}
+            <div class="px-5 py-4 flex items-center justify-between">
+                <div>
+                    <span class="text-white">{{ member.name }}</span>
+                    <span class="text-gray-500 ml-2">{{ member.email }}</span>
+                </div>
+                <span class="px-2 py-1 text-xs rounded {% if member.role == 'owner' %}bg-emerald-900/50 text-emerald-400{% else %}bg-gray-700 text-gray-400{% endif %}">
+                    {{ member.role|capitalize }}
+                </span>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    
+    <!-- Send Invite -->
+    <div class="bg-gray-800 rounded-xl border border-gray-700 p-6">
+        <h2 class="text-lg font-semibold text-white mb-4">Invite New Member</h2>
+        
+        <form method="POST" action="{{ base_path('/invite') }}" class="flex space-x-3">
+            {{ csrf_field()|raw }}
+            <input type="email" name="email" placeholder="Enter email address" required
+                   class="flex-1 px-4 py-2 bg-gray-900 border border-gray-600 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-emerald-500">
+            <button type="submit" 
+                    class="px-6 py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-medium rounded-lg transition-colors">
+                Send Invite
+            </button>
+        </form>
+        
+        <p class="text-sm text-gray-500 mt-3">
+            An invite link will be generated. Share it with the person you want to invite.
+            The link expires after 7 days.
+        </p>
+    </div>
+    
+    <!-- Pending Invites -->
+    {% if invites|length > 0 %}
+    <div class="bg-gray-800 rounded-xl border border-gray-700 overflow-hidden">
+        <div class="px-5 py-4 border-b border-gray-700">
+            <h2 class="text-lg font-semibold text-white">Pending Invites</h2>
+        </div>
+        <div class="divide-y divide-gray-700">
+            {% for invite in invites %}
+            <div class="px-5 py-4">
+                <div class="flex items-center justify-between">
+                    <span class="text-white">{{ invite.email }}</span>
+                    <span class="text-sm text-gray-500">
+                        Expires {{ invite.expires_at|date("M j, Y") }}
+                    </span>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

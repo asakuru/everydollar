@@ -1,0 +1,193 @@
+{% extends "layout.twig" %}
+
+{% block title %}Budget {{ month_display }} - {{ app_name }}{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+    <!-- Header with Month Navigation -->
+    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div class="flex items-center space-x-4">
+            <a href="{{ base_path('/budget/' ~ prev_month) }}" 
+               class="p-2 text-gray-400 hover:text-white hover:bg-gray-700 rounded-lg transition-colors">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
+                </svg>
+            </a>
+            <h1 class="text-2xl font-bold text-white">{{ month_display }}</h1>
+            <a href="{{ base_path('/budget/' ~ next_month) }}" 
+               class="p-2 text-gray-400 hover:text-white hover:bg-gray-700 rounded-lg transition-colors">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+                </svg>
+            </a>
+        </div>
+        
+        <div class="flex items-center space-x-3">
+            <form method="POST" action="{{ base_path('/budget/' ~ month ~ '/copy-previous') }}" class="inline">
+                {{ csrf_field()|raw }}
+                <button type="submit" 
+                        class="px-4 py-2 text-sm bg-gray-700 hover:bg-gray-600 text-gray-300 rounded-lg transition-colors">
+                    Copy Last Month
+                </button>
+            </form>
+            <a href="{{ base_path('/transactions/' ~ month) }}" 
+               class="px-4 py-2 text-sm bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg transition-colors">
+                + Add Transaction
+            </a>
+        </div>
+    </div>
+    
+    <!-- Summary Cards -->
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <!-- Total Income -->
+        <div class="bg-gray-800 rounded-xl p-5 border border-gray-700">
+            <p class="text-sm text-gray-400 mb-1">Total Income</p>
+            <p class="text-2xl font-bold text-emerald-400">${{ "%.2f"|format(total_income / 100) }}</p>
+        </div>
+        
+        <!-- Total Planned -->
+        <div class="bg-gray-800 rounded-xl p-5 border border-gray-700">
+            <p class="text-sm text-gray-400 mb-1">Total Planned</p>
+            <p class="text-2xl font-bold text-white">${{ "%.2f"|format(total_planned / 100) }}</p>
+        </div>
+        
+        <!-- Total Spent -->
+        <div class="bg-gray-800 rounded-xl p-5 border border-gray-700">
+            <p class="text-sm text-gray-400 mb-1">Total Spent</p>
+            <p class="text-2xl font-bold text-white">${{ "%.2f"|format(total_actual / 100) }}</p>
+        </div>
+        
+        <!-- Unassigned -->
+        <div class="bg-gray-800 rounded-xl p-5 border border-gray-700">
+            <p class="text-sm text-gray-400 mb-1">Unassigned</p>
+            <p class="text-2xl font-bold {% if unassigned == 0 %}text-emerald-400{% elseif unassigned > 0 %}text-yellow-400{% else %}text-red-400{% endif %}">
+                ${{ "%.2f"|format(unassigned / 100) }}
+            </p>
+            {% if unassigned == 0 %}
+            <p class="text-xs text-emerald-500 mt-1">✓ Zero-based!</p>
+            {% elseif unassigned > 0 %}
+            <p class="text-xs text-yellow-500 mt-1">Assign to categories</p>
+            {% else %}
+            <p class="text-xs text-red-500 mt-1">Over-budgeted</p>
+            {% endif %}
+        </div>
+    </div>
+    
+    <!-- Income Section -->
+    <div class="bg-gray-800 rounded-xl border border-gray-700 overflow-hidden">
+        <div class="px-5 py-4 border-b border-gray-700 flex justify-between items-center">
+            <h2 class="text-lg font-semibold text-emerald-400">Income</h2>
+            <span class="text-lg font-bold text-emerald-400">${{ "%.2f"|format(total_income / 100) }}</span>
+        </div>
+        
+        <div class="divide-y divide-gray-700">
+            {% for income in income_items %}
+            <form method="POST" action="{{ base_path('/budget/' ~ month ~ '/income/' ~ income.id ~ '/update') }}" 
+                  class="flex items-center px-5 py-3 hover:bg-gray-750 group">
+                {{ csrf_field()|raw }}
+                <input type="text" name="name" value="{{ income.name }}" 
+                       class="flex-1 bg-transparent text-white focus:outline-none focus:bg-gray-700 px-2 py-1 rounded">
+                <div class="flex items-center space-x-2">
+                    <span class="text-gray-500">$</span>
+                    <input type="text" name="amount" value="{{ "%.2f"|format(income.planned_cents / 100) }}" 
+                           class="w-24 text-right bg-transparent text-emerald-400 focus:outline-none focus:bg-gray-700 px-2 py-1 rounded">
+                    <button type="submit" class="opacity-0 group-hover:opacity-100 text-emerald-400 hover:text-emerald-300 transition-opacity">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+                        </svg>
+                    </button>
+                </div>
+            </form>
+            {% endfor %}
+            
+            <!-- Add Income -->
+            <form method="POST" action="{{ base_path('/budget/' ~ month ~ '/income') }}" 
+                  class="flex items-center px-5 py-3 bg-gray-850">
+                {{ csrf_field()|raw }}
+                <input type="text" name="name" placeholder="New income source..." required
+                       class="flex-1 bg-transparent text-white placeholder-gray-500 focus:outline-none focus:bg-gray-700 px-2 py-1 rounded">
+                <div class="flex items-center space-x-2">
+                    <span class="text-gray-500">$</span>
+                    <input type="text" name="amount" value="0.00" 
+                           class="w-24 text-right bg-transparent text-gray-400 focus:outline-none focus:bg-gray-700 px-2 py-1 rounded">
+                    <button type="submit" class="text-emerald-400 hover:text-emerald-300">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+                        </svg>
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+    
+    <!-- Category Groups -->
+    {% for group in category_groups %}
+    <div class="bg-gray-800 rounded-xl border border-gray-700 overflow-hidden">
+        <div class="px-5 py-4 border-b border-gray-700 flex justify-between items-center bg-gray-850">
+            <h2 class="text-lg font-semibold text-white">{{ group.name }}</h2>
+            <div class="flex items-center space-x-4 text-sm text-gray-400">
+                <span>Planned</span>
+                <span>Spent</span>
+                <span>Remaining</span>
+            </div>
+        </div>
+        
+        <div class="divide-y divide-gray-700">
+            {% for category in group.categories %}
+            <div class="flex items-center px-5 py-3 hover:bg-gray-750 group">
+                <a href="{{ base_path('/category/' ~ category.id ~ '?month=' ~ month) }}" 
+                   class="flex-1 text-white hover:text-emerald-400 transition-colors">
+                    {{ category.name }}
+                </a>
+                <div class="flex items-center space-x-4">
+                    <!-- Planned -->
+                    <form method="POST" action="{{ base_path('/budget/' ~ month ~ '/category/' ~ category.id ~ '/budget') }}" 
+                          class="flex items-center">
+                        {{ csrf_field()|raw }}
+                        <span class="text-gray-500 mr-1">$</span>
+                        <input type="text" name="planned" value="{{ "%.2f"|format(category.planned_cents / 100) }}" 
+                               class="w-20 text-right bg-transparent text-white focus:outline-none focus:bg-gray-700 px-2 py-1 rounded"
+                               onchange="this.form.submit()">
+                    </form>
+                    
+                    <!-- Spent -->
+                    <span class="w-20 text-right text-gray-400">
+                        ${{ "%.2f"|format(category.actual_cents / 100) }}
+                    </span>
+                    
+                    <!-- Remaining -->
+                    <span class="w-20 text-right font-medium {% if category.remaining_cents >= 0 %}text-emerald-400{% else %}text-red-400{% endif %}">
+                        ${{ "%.2f"|format(category.remaining_cents / 100) }}
+                    </span>
+                </div>
+            </div>
+            {% endfor %}
+            
+            <!-- Add Category -->
+            <form method="POST" action="{{ base_path('/category-group/' ~ group.id ~ '/category') }}" 
+                  class="flex items-center px-5 py-2 bg-gray-850">
+                {{ csrf_field()|raw }}
+                <input type="hidden" name="month" value="{{ month }}">
+                <input type="text" name="name" placeholder="+ Add category" 
+                       class="flex-1 bg-transparent text-gray-500 placeholder-gray-600 focus:outline-none focus:text-white text-sm px-2 py-1">
+                <button type="submit" class="text-gray-600 hover:text-emerald-400 text-sm">Add</button>
+            </form>
+        </div>
+    </div>
+    {% endfor %}
+    
+    <!-- Add Category Group -->
+    <form method="POST" action="{{ base_path('/category-group') }}" 
+          class="bg-gray-800 rounded-xl border border-dashed border-gray-600 p-4 hover:border-gray-500 transition-colors">
+        {{ csrf_field()|raw }}
+        <input type="hidden" name="month" value="{{ month }}">
+        <div class="flex items-center space-x-3">
+            <input type="text" name="name" placeholder="+ Add category group" 
+                   class="flex-1 bg-transparent text-gray-400 placeholder-gray-500 focus:outline-none focus:text-white">
+            <button type="submit" class="px-4 py-2 text-sm bg-gray-700 hover:bg-gray-600 text-gray-300 rounded-lg transition-colors">
+                Add Group
+            </button>
+        </div>
+    </form>
+</div>
+{% endblock %}

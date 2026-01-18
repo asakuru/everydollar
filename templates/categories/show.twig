@@ -1,0 +1,89 @@
+{% extends "layout.twig" %}
+
+{% block title %}{{ category.name }} - {{ app_name }}{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+    <!-- Header -->
+    <div class="flex items-center justify-between">
+        <div>
+            <p class="text-gray-400 text-sm">{{ category.group_name }}</p>
+            <h1 class="text-2xl font-bold text-white">{{ category.name }}</h1>
+        </div>
+        <a href="{{ base_path('/budget/' ~ month) }}" 
+           class="px-4 py-2 text-sm bg-gray-700 hover:bg-gray-600 text-gray-300 rounded-lg transition-colors">
+            ← Back to Budget
+        </a>
+    </div>
+    
+    <!-- Summary -->
+    <div class="grid grid-cols-3 gap-4">
+        <div class="bg-gray-800 rounded-xl p-5 border border-gray-700">
+            <p class="text-sm text-gray-400 mb-1">Planned</p>
+            <p class="text-2xl font-bold text-white">${{ "%.2f"|format(planned_cents / 100) }}</p>
+        </div>
+        <div class="bg-gray-800 rounded-xl p-5 border border-gray-700">
+            <p class="text-sm text-gray-400 mb-1">Spent</p>
+            <p class="text-2xl font-bold text-white">${{ "%.2f"|format(actual_cents / 100) }}</p>
+        </div>
+        <div class="bg-gray-800 rounded-xl p-5 border border-gray-700">
+            <p class="text-sm text-gray-400 mb-1">Remaining</p>
+            <p class="text-2xl font-bold {% if remaining_cents >= 0 %}text-emerald-400{% else %}text-red-400{% endif %}">
+                ${{ "%.2f"|format(remaining_cents / 100) }}
+            </p>
+        </div>
+    </div>
+    
+    <!-- Progress Bar -->
+    {% set spent_percent = planned_cents > 0 ? (actual_cents / planned_cents * 100) : 0 %}
+    <div class="bg-gray-800 rounded-xl p-5 border border-gray-700">
+        <div class="flex justify-between text-sm mb-2">
+            <span class="text-gray-400">{{ month_display }}</span>
+            <span class="text-gray-400">{{ spent_percent|round }}% spent</span>
+        </div>
+        <div class="h-3 bg-gray-700 rounded-full overflow-hidden">
+            <div class="h-full {% if spent_percent > 100 %}bg-red-500{% elseif spent_percent > 80 %}bg-yellow-500{% else %}bg-emerald-500{% endif %} transition-all"
+                 style="width: {{ [spent_percent, 100]|min }}%"></div>
+        </div>
+    </div>
+    
+    <!-- Transactions -->
+    <div class="bg-gray-800 rounded-xl border border-gray-700 overflow-hidden">
+        <div class="px-5 py-4 border-b border-gray-700">
+            <h2 class="text-lg font-semibold text-white">Transactions</h2>
+        </div>
+        
+        {% if transactions|length > 0 %}
+        <table class="w-full">
+            <thead class="bg-gray-850">
+                <tr class="text-left text-sm text-gray-400">
+                    <th class="px-5 py-3 font-medium">Date</th>
+                    <th class="px-5 py-3 font-medium">Payee</th>
+                    <th class="px-5 py-3 font-medium text-right">Amount</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-700">
+                {% for transaction in transactions %}
+                <tr class="hover:bg-gray-750">
+                    <td class="px-5 py-3 text-gray-300">{{ transaction.date|date("M j") }}</td>
+                    <td class="px-5 py-3">
+                        <div class="text-white">{{ transaction.payee }}</div>
+                        {% if transaction.memo %}
+                        <div class="text-sm text-gray-500">{{ transaction.memo }}</div>
+                        {% endif %}
+                    </td>
+                    <td class="px-5 py-3 text-right font-medium text-white">
+                        ${{ "%.2f"|format(transaction.amount_cents / 100) }}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <div class="px-5 py-8 text-center text-gray-500">
+            No transactions in this category yet.
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

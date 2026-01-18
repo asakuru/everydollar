@@ -1,0 +1,140 @@
+{% extends "layout.twig" %}
+
+{% block title %}Reports - {{ app_name }}{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+    <!-- Header -->
+    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <h1 class="text-2xl font-bold text-white">Spending Reports</h1>
+        
+        <!-- Date Range Filter -->
+        <form method="GET" action="{{ base_path('/reports') }}" class="flex items-center space-x-3">
+            <input type="month" name="start_month" value="{{ start_month }}"
+                   class="px-3 py-2 bg-gray-800 border border-gray-600 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500">
+            <span class="text-gray-500">to</span>
+            <input type="month" name="end_month" value="{{ end_month }}"
+                   class="px-3 py-2 bg-gray-800 border border-gray-600 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500">
+            <button type="submit" 
+                    class="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white text-sm rounded-lg transition-colors">
+                Update
+            </button>
+        </form>
+    </div>
+    
+    <!-- Summary Cards -->
+    <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div class="bg-gray-800 rounded-xl p-5 border border-gray-700">
+            <p class="text-sm text-gray-400 mb-1">Total Income</p>
+            <p class="text-2xl font-bold text-emerald-400">${{ "%.2f"|format(total_income / 100) }}</p>
+        </div>
+        <div class="bg-gray-800 rounded-xl p-5 border border-gray-700">
+            <p class="text-sm text-gray-400 mb-1">Total Expenses</p>
+            <p class="text-2xl font-bold text-white">${{ "%.2f"|format(total_expenses / 100) }}</p>
+        </div>
+        <div class="bg-gray-800 rounded-xl p-5 border border-gray-700">
+            <p class="text-sm text-gray-400 mb-1">Net Savings</p>
+            <p class="text-2xl font-bold {% if net_savings >= 0 %}text-emerald-400{% else %}text-red-400{% endif %}">
+                ${{ "%.2f"|format(net_savings / 100) }}
+            </p>
+        </div>
+    </div>
+    
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <!-- Monthly Trend -->
+        <div class="bg-gray-800 rounded-xl border border-gray-700 overflow-hidden">
+            <div class="px-5 py-4 border-b border-gray-700">
+                <h2 class="text-lg font-semibold text-white">Monthly Trend</h2>
+            </div>
+            <div class="p-5">
+                {% if monthly_totals|length > 0 %}
+                <table class="w-full">
+                    <thead>
+                        <tr class="text-left text-sm text-gray-400">
+                            <th class="pb-3 font-medium">Month</th>
+                            <th class="pb-3 font-medium text-right">Income</th>
+                            <th class="pb-3 font-medium text-right">Expenses</th>
+                            <th class="pb-3 font-medium text-right">Net</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-gray-700">
+                        {% for month in monthly_totals %}
+                        <tr>
+                            <td class="py-3 text-white">{{ (month.month ~ '-01')|date("M Y") }}</td>
+                            <td class="py-3 text-right text-emerald-400">${{ "%.2f"|format(month.income_cents / 100) }}</td>
+                            <td class="py-3 text-right text-gray-300">${{ "%.2f"|format(month.expense_cents / 100) }}</td>
+                            {% set net = month.income_cents - month.expense_cents %}
+                            <td class="py-3 text-right font-medium {% if net >= 0 %}text-emerald-400{% else %}text-red-400{% endif %}">
+                                ${{ "%.2f"|format(net / 100) }}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+                {% else %}
+                <p class="text-gray-500 text-center py-4">No data for this period.</p>
+                {% endif %}
+            </div>
+        </div>
+        
+        <!-- Top Payees -->
+        <div class="bg-gray-800 rounded-xl border border-gray-700 overflow-hidden">
+            <div class="px-5 py-4 border-b border-gray-700">
+                <h2 class="text-lg font-semibold text-white">Top Merchants</h2>
+            </div>
+            <div class="p-5">
+                {% if top_payees|length > 0 %}
+                <div class="space-y-3">
+                    {% for payee in top_payees %}
+                    <div class="flex justify-between items-center">
+                        <div>
+                            <span class="text-white">{{ payee.payee }}</span>
+                            <span class="text-sm text-gray-500 ml-2">({{ payee.transaction_count }})</span>
+                        </div>
+                        <span class="font-medium text-gray-300">${{ "%.2f"|format(payee.total_cents / 100) }}</span>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <p class="text-gray-500 text-center py-4">No transactions for this period.</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    
+    <!-- Spending by Category -->
+    <div class="bg-gray-800 rounded-xl border border-gray-700 overflow-hidden">
+        <div class="px-5 py-4 border-b border-gray-700">
+            <h2 class="text-lg font-semibold text-white">Spending by Category</h2>
+        </div>
+        
+        {% if category_spending|length > 0 %}
+        <table class="w-full">
+            <thead class="bg-gray-850">
+                <tr class="text-left text-sm text-gray-400">
+                    <th class="px-5 py-3 font-medium">Category</th>
+                    <th class="px-5 py-3 font-medium text-right">Transactions</th>
+                    <th class="px-5 py-3 font-medium text-right">Total</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-700">
+                {% for cat in category_spending %}
+                <tr class="hover:bg-gray-750">
+                    <td class="px-5 py-3">
+                        <span class="text-gray-400">{{ cat.group_name }} ›</span>
+                        <span class="text-white ml-1">{{ cat.category_name }}</span>
+                    </td>
+                    <td class="px-5 py-3 text-right text-gray-400">{{ cat.transaction_count }}</td>
+                    <td class="px-5 py-3 text-right font-medium text-white">${{ "%.2f"|format(cat.total_cents / 100) }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <div class="px-5 py-8 text-center text-gray-500">
+            No categorized spending for this period.
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

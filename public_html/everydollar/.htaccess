@@ -1,0 +1,25 @@
+Options -Indexes
+
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+  RewriteBase /everydollar/
+
+  # Serve existing files/directories normally (assets, images, etc.)
+  RewriteCond %{REQUEST_FILENAME} -f [OR]
+  RewriteCond %{REQUEST_FILENAME} -d
+  RewriteRule ^ - [L]
+
+  # Route everything else to the front controller
+  RewriteRule ^ index.php [L]
+</IfModule>
+
+# Basic security headers (safe on shared hosting)
+<IfModule mod_headers.c>
+  Header set X-Content-Type-Options "nosniff"
+  Header set Referrer-Policy "strict-origin-when-cross-origin"
+</IfModule>
+
+# Block direct access to common sensitive files (if they exist here)
+<FilesMatch "(^\.env|\.ini$|\.log$|composer\.(json|lock)$|phpunit\.xml$)">
+  Require all denied
+</FilesMatch>

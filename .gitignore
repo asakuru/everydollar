@@ -1,0 +1,29 @@
+# Dependencies
+/vendor/
+/node_modules/
+
+# Configuration (contains secrets)
+/config.php
+/.env
+/.env.*
+!/.env.example
+
+# Storage (generated files)
+/storage/logs/*.log
+/storage/cache/
+
+# IDE and OS files
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# Build artifacts
+/public_html/everydollar/assets/css/*.map
+
+# Test artifacts
+/coverage/
+.phpunit.result.cache

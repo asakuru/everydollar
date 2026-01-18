@@ -1,0 +1,119 @@
+{% extends "layout.twig" %}
+
+{% block title %}Create Household - {{ app_name }}{% endblock %}
+
+{% block content %}
+<div class="min-h-[70vh] flex items-center justify-center">
+    <div class="w-full max-w-md">
+        <!-- Header -->
+        <div class="text-center mb-8">
+            <h1 class="text-3xl font-bold text-emerald-400">{{ app_name }}</h1>
+            <p class="text-gray-400 mt-2">Create your household budget</p>
+        </div>
+        
+        <!-- Setup Card -->
+        <div class="bg-gray-800 rounded-xl shadow-xl border border-gray-700 p-8">
+            {% if errors %}
+            <div class="mb-6 bg-red-900/30 border border-red-700 rounded-lg px-4 py-3">
+                <ul class="list-disc list-inside text-red-400 text-sm">
+                    {% for error in errors %}
+                    <li>{{ error }}</li>
+                    {% endfor %}
+                </ul>
+            </div>
+            {% endif %}
+            
+            <form method="POST" action="{{ base_path('/setup') }}" class="space-y-5">
+                {{ csrf_field()|raw }}
+                
+                <!-- Household Name -->
+                <div>
+                    <label for="household_name" class="block text-sm font-medium text-gray-300 mb-2">
+                        Household Name
+                    </label>
+                    <input type="text" 
+                           id="household_name" 
+                           name="household_name" 
+                           value="{{ household_name|default('') }}"
+                           placeholder="e.g., Smith Family"
+                           required
+                           maxlength="100"
+                           class="w-full px-4 py-3 bg-gray-900 border border-gray-600 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-colors">
+                </div>
+                
+                <hr class="border-gray-700">
+                
+                <!-- Your Name -->
+                <div>
+                    <label for="name" class="block text-sm font-medium text-gray-300 mb-2">
+                        Your Name
+                    </label>
+                    <input type="text" 
+                           id="name" 
+                           name="name" 
+                           value="{{ name|default('') }}"
+                           required
+                           maxlength="100"
+                           class="w-full px-4 py-3 bg-gray-900 border border-gray-600 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-colors">
+                </div>
+                
+                <!-- Email -->
+                <div>
+                    <label for="email" class="block text-sm font-medium text-gray-300 mb-2">
+                        Email Address
+                    </label>
+                    <input type="email" 
+                           id="email" 
+                           name="email" 
+                           value="{{ email|default('') }}"
+                           required
+                           autocomplete="email"
+                           class="w-full px-4 py-3 bg-gray-900 border border-gray-600 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-colors">
+                </div>
+                
+                <!-- Password -->
+                <div>
+                    <label for="password" class="block text-sm font-medium text-gray-300 mb-2">
+                        Password
+                    </label>
+                    <input type="password" 
+                           id="password" 
+                           name="password" 
+                           required
+                           autocomplete="new-password"
+                           class="w-full px-4 py-3 bg-gray-900 border border-gray-600 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-colors">
+                    <p class="mt-1 text-xs text-gray-500">Minimum 12 characters</p>
+                </div>
+                
+                <!-- Confirm Password -->
+                <div>
+                    <label for="password_confirm" class="block text-sm font-medium text-gray-300 mb-2">
+                        Confirm Password
+                    </label>
+                    <input type="password" 
+                           id="password_confirm" 
+                           name="password_confirm" 
+                           required
+                           autocomplete="new-password"
+                           class="w-full px-4 py-3 bg-gray-900 border border-gray-600 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-colors">
+                </div>
+                
+                <button type="submit" 
+                        class="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-semibold py-3 px-4 rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 focus:ring-offset-gray-800">
+                    Create Household
+                </button>
+            </form>
+        </div>
+        
+        <!-- Login Link -->
+        <div class="text-center mt-6">
+            <p class="text-gray-400">
+                Already have an account? 
+                <a href="{{ base_path('/login') }}" class="text-emerald-400 hover:text-emerald-300 font-medium">
+                    Sign in
+                </a>
+            </p>
+        </div>
+    </div>
+</div>
+{% endblock %}
