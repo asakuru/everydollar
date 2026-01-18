@@ -10,7 +10,13 @@ declare(strict_types=1);
 
 // Define the base path constant for the application
 define('BASE_PATH', '/everydollar');
-define('ROOT_DIR', dirname(__DIR__, 2));
+
+// ROOT_DIR: Use repository path for production, calculated path for development
+if (is_dir('/home/ravenscv/repositories/everydollar')) {
+    define('ROOT_DIR', '/home/ravenscv/repositories/everydollar');
+} else {
+    define('ROOT_DIR', dirname(__DIR__, 2));
+}
 
 // Composer autoloader
 require ROOT_DIR . '/vendor/autoload.php';
