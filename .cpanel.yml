@@ -1,7 +1,7 @@
 ---
 deployment:
   tasks:
-    - export DEPLOYPATH=/home/$USER/public_html/everydollar
+    - export DEPLOYPATH=/home/ravenscv/fuzzysolution.com/everydollar
     - /bin/mkdir -p $DEPLOYPATH
     - /bin/cp -R public_html/everydollar/. $DEPLOYPATH/
     - /bin/mkdir -p storage/logs storage/cache/twig
