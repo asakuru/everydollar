@@ -68,10 +68,17 @@ class InvoiceController extends BaseController
             }
         }
 
+        // Fetch accounts for payment selection
+        $accounts = $this->db->fetchAll(
+            "SELECT id, name, type, balance_cents FROM accounts WHERE entity_id = ? AND archived = 0 ORDER BY type, name",
+            [$entityId]
+        );
+
         return $this->render($response, 'invoices/index.twig', [
             'invoices' => $invoices,
             'entity' => $entity,
             'status' => $status,
+            'accounts' => $accounts,
             'total_overdue_cents' => $totalOverdue,
             'total_outstanding_cents' => $totalOutstanding,
         ]);
