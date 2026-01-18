@@ -92,14 +92,22 @@ try {
         try {
             $pdo->exec($stmt);
         } catch (PDOException $e) {
-            // Check for "Duplicate column name" (1060) or "Table already exists" (1050)
-            // SQLSTATE 42S21 = Column already exists
-            // SQLSTATE 42S01 = Table already exists
+            // Check for duplicate/existing errors
+            // 1060: Duplicate column name
+            // 1050: Table already exists
+            // 1061: Duplicate key name
+            // 1005 (errno 121): Duplicate key on write or update
+
+            $msg = $e->getMessage();
+            $code = $e->getCode();
+
             if (
-                $e->getCode() == '42S21' ||
-                $e->getCode() == '42S01' ||
-                str_contains($e->getMessage(), 'Duplicate column name') ||
-                str_contains($e->getMessage(), 'already exists')
+                $code == '42S21' || // Column already exists
+                $code == '42S01' || // Table already exists
+                str_contains($msg, 'Duplicate column name') ||
+                str_contains($msg, 'already exists') ||
+                str_contains($msg, 'Duplicate key') ||
+                str_contains($msg, 'errno: 121')
             ) {
                 echo "Warning: Skipped duplicate/existing item.\n";
                 // Continue to next statement
