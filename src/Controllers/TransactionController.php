@@ -236,7 +236,18 @@ class TransactionController extends BaseController
                         // Drop the restrictive index and replace it with the correct entity-aware one
                         try {
                             $pdo = $this->db->getPdo();
+
+                            // 1. Create a standby index for the FK so we can drop the unique one
+                            try {
+                                $pdo->exec("CREATE INDEX idx_household_fk ON budget_months (household_id)");
+                            } catch (\Throwable $t) {
+                                // Ignore if exists
+                            }
+
+                            // 2. Drop the bad unique index
                             $pdo->exec("DROP INDEX idx_household_month ON budget_months");
+
+                            // 3. Create the good unique index
                             $pdo->exec("CREATE UNIQUE INDEX idx_entity_month ON budget_months (entity_id, month_yyyymm)");
 
                             // Retry Insert
