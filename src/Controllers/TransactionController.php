@@ -164,6 +164,11 @@ class TransactionController extends BaseController
      */
     public function create(Request $request, Response $response): Response
     {
+        // DEBUG: Force show errors for 500 investigation
+        ini_set('display_errors', '1');
+        ini_set('display_startup_errors', '1');
+        error_reporting(E_ALL);
+
         $data = (array) $request->getParsedBody();
         $householdId = $this->householdId();
         $entityId = EntityController::getCurrentEntityId();
@@ -327,10 +332,10 @@ class TransactionController extends BaseController
                     return $this->redirect($response, $returnTo);
                 }
             }
-        } catch (\Exception $e) {
-            error_log("Transaction Create Error: " . $e->getMessage() . "\n" . $e->getTraceAsString());
-            $this->flash('error', 'Unexpected error: ' . $e->getMessage());
-            return $this->redirect($response, "/transactions/{$month}");
+        } catch (\Throwable $e) {
+            // DEBUG OUTPUT IF DATABASE LOGGING FAILS
+            echo "FATAL ERROR CAUGHT: " . $e->getMessage() . "<br><pre>" . $e->getTraceAsString() . "</pre>";
+            die(); // Stop everything so user sees execution output
         }
 
         $this->flash('success', 'Transaction added.');
