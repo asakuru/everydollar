@@ -1,0 +1,8 @@
+---
+deployment:
+  tasks:
+    - export DEPLOYPATH=/home/$USER/public_html/everydollar
+    - /bin/mkdir -p $DEPLOYPATH
+    - /bin/cp -R public_html/everydollar/. $DEPLOYPATH/
+    - /bin/mkdir -p storage/logs storage/cache/twig
+    - /bin/chmod 755 storage storage/logs storage/cache storage/cache/twig
