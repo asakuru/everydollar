@@ -343,7 +343,6 @@ class TransactionController extends BaseController
             die(); // Stop everything so user sees execution output
         }
     }
-    }
 
     /**
      * Show edit form
