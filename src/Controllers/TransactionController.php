@@ -328,16 +328,36 @@ class TransactionController extends BaseController
                         [$personalEntity['id']]
                     );
 
-                    // 2. Fallback to ANYTHING if specific match fails
+                    // 2. If NO matching category found, CREATE it.
                     if (!$personalCat) {
-                        $personalCat = $this->db->fetch(
-                            "SELECT c.id FROM categories c 
-                             JOIN category_groups cg ON cg.id = c.category_group_id
-                             WHERE cg.entity_id = ? 
-                             ORDER BY cg.sort_order ASC, c.sort_order ASC
-                             LIMIT 1",
+                        // A. Check if "Income" group exists
+                        $incomeGroup = $this->db->fetch(
+                            "SELECT id FROM category_groups WHERE entity_id = ? AND name = 'Income'",
                             [$personalEntity['id']]
                         );
+
+                        $incomeGroupId = $incomeGroup['id'] ?? null;
+
+                        if (!$incomeGroupId) {
+                            // Create "Income" Group
+                            $incomeGroupId = $this->db->insert('category_groups', [
+                                'household_id' => $householdId,
+                                'entity_id' => $personalEntity['id'],
+                                'name' => 'Income',
+                                'sort_order' => 0,
+                                'hide_from_budget' => 0
+                            ]);
+                        }
+
+                        // B. Create "Owner Draw" Category
+                        $personalCatId = $this->db->insert('categories', [
+                            'category_group_id' => $incomeGroupId,
+                            'name' => 'Owner Draw',
+                            'sort_order' => 0
+                        ]);
+
+                        // Fake the array structure for below
+                        $personalCat = ['id' => $personalCatId];
                     }
 
                     // Find Default Checking Account for Personal
