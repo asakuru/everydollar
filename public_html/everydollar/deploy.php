@@ -29,37 +29,61 @@ echo "Starting Deployment...\n";
 echo "Date: " . date('Y-m-d H:i:s') . "\n";
 echo "----------------------------------------\n";
 
+// Helper to execute commands robustly
+function runCommand($cmd)
+{
+    echo "\n> $cmd\n";
+
+    // 1. Try system() - prints output as it goes
+    if (function_exists('system')) {
+        @system($cmd);
+        return;
+    }
+
+    // 2. Try passthru() - raw output
+    if (function_exists('passthru')) {
+        @passthru($cmd);
+        return;
+    }
+
+    // 3. Try exec() - captures output
+    if (function_exists('exec')) {
+        $output = [];
+        @exec($cmd . ' 2>&1', $output);
+        echo implode("\n", $output);
+        return;
+    }
+
+    // 4. Try shell_exec() - returns output as string
+    if (function_exists('shell_exec')) {
+        echo @shell_exec($cmd . ' 2>&1');
+        return;
+    }
+
+    echo "ERROR: No shell execution functions available (system, passthru, exec, shell_exec).\n";
+    echo "Cannot execute command.\n";
+}
+
 $commands = [
-    // 1. Go to repo
-    "cd {$repoPath}",
+    // Git: Fetch and Reset (Chain cd to ensure correct dir)
+    "cd {$repoPath} && git fetch origin main",
+    "cd {$repoPath} && git reset --hard origin/main",
 
-    // 2. Discard local changes (fix conflicting files) and pull
-    "echo 'Git: Fetching and Resetting...'",
-    "git fetch origin main",
-    "git reset --hard origin/main",
+    // Composer: Install dependencies
+    "cd {$repoPath} && {$phpPath} {$composerPath} install --no-dev --optimize-autoloader",
 
-    // 3. Install Dependencies
-    "echo 'Composer: Installing Dependencies...'",
-    "{$phpPath} {$composerPath} install --no-dev --optimize-autoloader 2>&1",
+    // Database: Run Migrations
+    "cd {$repoPath} && {$phpPath} migrations/migrate.php",
 
-    // 4. Run Migrations
-    "echo 'Database: Running Migrations...'",
-    "{$phpPath} migrations/migrate.php 2>&1",
+    // Deploy: Copy files to web root
+    "cp -R {$repoPath}/public_html/everydollar/. /home/ravenscv/fuzzysolution.com/everydollar/",
 
-    // 5. Deploy Files to Web Root
-    "echo 'Deploy: Copying files to web root...'",
-    "cp -R public_html/everydollar/. /home/ravenscv/fuzzysolution.com/everydollar/",
-
-    // 6. Clear Cache
-    "echo 'System: Clearing Cache...'",
-    "rm -rf storage/cache/twig/*",
-    "echo 'Cache cleared.'"
+    // Cache: Clear Twig cache
+    "rm -rf /home/ravenscv/repositories/everydollar/storage/cache/twig/*"
 ];
 
 foreach ($commands as $cmd) {
-    echo "\n> $cmd\n";
-    // Capture stderr too
-    passthru($cmd);
+    runCommand($cmd);
     flush();
 }
 
