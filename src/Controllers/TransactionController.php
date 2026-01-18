@@ -235,99 +235,102 @@ class TransactionController extends BaseController
             }
         }
 
-        // INSERT TRANSACTION
-        $transactionId = $this->db->insert('transactions', [
-            'household_id' => $householdId,
-            'entity_id' => $entityId,
-            'account_id' => $accountId,
-            'budget_month_id' => $budgetMonthId,
-            'date' => $date,
-            'amount_cents' => $amount,
-            'type' => $type,
-            'payee' => $payee,
-            'memo' => $memo ?: null,
-            'category_id' => $categoryId,
-            'created_at' => date('Y-m-d H:i:s'),
-            'updated_at' => date('Y-m-d H:i:s'),
-            'created_by_user_id' => $userId,
-            'is_transfer' => $isOwnerDraw ? 1 : 0,
-        ]);
+        try {
+            // INSERT TRANSACTION
+            $transactionId = $this->db->insert('transactions', [
+                'household_id' => $householdId,
+                'entity_id' => $entityId,
+                'account_id' => $accountId,
+                'budget_month_id' => $budgetMonthId,
+                'date' => $date,
+                'amount_cents' => $amount,
+                'type' => $type,
+                'payee' => $payee,
+                'memo' => $memo ?: null,
+                'category_id' => $categoryId,
+                'created_at' => date('Y-m-d H:i:s'),
+                'updated_at' => date('Y-m-d H:i:s'),
+                'created_by_user_id' => $userId,
+                'is_transfer' => $isOwnerDraw ? 1 : 0,
+            ]);
 
-        // Update Account Balance
-        if ($accountId) {
-            AccountController::updateBalanceForTransaction($this->db, $accountId, $amount, $type);
-        }
+            // Update Account Balance
+            if ($accountId) {
+                AccountController::updateBalanceForTransaction($this->db, $accountId, $amount, $type);
+            }
 
-        // HANDLE OWNER DRAW LINKING
-        // If this is an LLC expense categorised as "Owner Draw", create matching Personal Income
-        if ($isOwnerDraw && $type === 'expense') {
-            // Find Personal Entity
-            $personalEntity = $this->db->fetch(
-                "SELECT id FROM entities WHERE household_id = ? AND type = 'personal' LIMIT 1",
-                [$householdId]
-            );
-
-            if ($personalEntity) {
-                // Find "Paycheck" or "Owner Draw" income category in Personal
-                $personalCat = $this->db->fetch(
-                    "SELECT c.id FROM categories c 
-                     JOIN category_groups cg ON cg.id = c.category_group_id
-                     WHERE cg.entity_id = ? AND (c.name LIKE '%Owner Draw%' OR c.name LIKE '%Paycheck%')
-                     LIMIT 1",
-                    [$personalEntity['id']]
+            // HANDLE OWNER DRAW LINKING
+            // If this is an LLC expense categorised as "Owner Draw", create matching Personal Income
+            if ($isOwnerDraw && $type === 'expense') {
+                // Find Personal Entity
+                $personalEntity = $this->db->fetch(
+                    "SELECT id FROM entities WHERE household_id = ? AND type = 'personal' LIMIT 1",
+                    [$householdId]
                 );
 
-                // Ensure budget month exists for personal
-                $personalBudgetMonth = $this->db->fetch(
-                    "SELECT id FROM budget_months WHERE entity_id = ? AND month_yyyymm = ?",
-                    [$personalEntity['id'], $month]
-                );
+                if ($personalEntity) {
+                    // Find "Paycheck" or "Owner Draw" income category in Personal
+                    $personalCat = $this->db->fetch(
+                        "SELECT c.id FROM categories c 
+                         JOIN category_groups cg ON cg.id = c.category_group_id
+                         WHERE cg.entity_id = ? AND (c.name LIKE '%Owner Draw%' OR c.name LIKE '%Paycheck%')
+                         LIMIT 1",
+                        [$personalEntity['id']]
+                    );
 
-                if (!$personalBudgetMonth) {
-                    $personalBudgetMonthId = $this->db->insert('budget_months', [
+                    // Ensure budget month exists for personal
+                    $personalBudgetMonth = $this->db->fetch(
+                        "SELECT id FROM budget_months WHERE entity_id = ? AND month_yyyymm = ?",
+                        [$personalEntity['id'], $month]
+                    );
+
+                    if (!$personalBudgetMonth) {
+                        $personalBudgetMonthId = $this->db->insert('budget_months', [
+                            'household_id' => $householdId,
+                            'entity_id' => $personalEntity['id'],
+                            'month_yyyymm' => $month,
+                            'created_at' => date('Y-m-d H:i:s'),
+                            'updated_at' => date('Y-m-d H:i:s'),
+                        ]);
+                    } else {
+                        $personalBudgetMonthId = $personalBudgetMonth['id'];
+                    }
+
+                    // Create Linked Personal Income Transaction
+                    $personalTxId = $this->db->insert('transactions', [
                         'household_id' => $householdId,
                         'entity_id' => $personalEntity['id'],
-                        'month_yyyymm' => $month,
+                        'account_id' => null,
+                        'budget_month_id' => $personalBudgetMonthId,
+                        'date' => $date,
+                        'amount_cents' => $amount,
+                        'type' => 'income',
+                        'payee' => $payee . ' (Draw)',
+                        'memo' => 'Linked from LLC Owner Draw',
+                        'category_id' => $personalCat ? $personalCat['id'] : null,
+                        'is_transfer' => 1,
                         'created_at' => date('Y-m-d H:i:s'),
                         'updated_at' => date('Y-m-d H:i:s'),
+                        'created_by_user_id' => $userId,
                     ]);
-                } else {
-                    $personalBudgetMonthId = $personalBudgetMonth['id'];
+
+                    // Create Link Record
+                    $this->db->insert('linked_transfers', [
+                        'from_transaction_id' => $transactionId,
+                        'to_transaction_id' => $personalTxId,
+                        'transfer_type' => 'owner_draw',
+                        'created_at' => date('Y-m-d H:i:s'),
+                    ]);
+
+                    $this->flash('success', 'Transaction added and Owner Draw linked to Personal Budget.');
+                    $returnTo = $data['return_to'] ?? "/transactions/{$month}";
+                    return $this->redirect($response, $returnTo);
                 }
-
-                // Create Linked Personal Income Transaction
-                $personalTxId = $this->db->insert('transactions', [
-                    'household_id' => $householdId,
-                    'entity_id' => $personalEntity['id'],
-                    // Note: We don't verify which personal account it went to yet, unless we prompt user. 
-                    // For now leave account_id null or default? 
-                    // Better to leave null and let user categorize/assign account later if they want.
-                    'account_id' => null,
-                    'budget_month_id' => $personalBudgetMonthId,
-                    'date' => $date,
-                    'amount_cents' => $amount,
-                    'type' => 'income',
-                    'payee' => $payee . ' (Draw)',
-                    'memo' => 'Linked from LLC Owner Draw',
-                    'category_id' => $personalCat ? $personalCat['id'] : null,
-                    'is_transfer' => 1,
-                    'created_at' => date('Y-m-d H:i:s'),
-                    'updated_at' => date('Y-m-d H:i:s'),
-                    'created_by_user_id' => $userId,
-                ]);
-
-                // Create Link Record
-                $this->db->insert('linked_transfers', [
-                    'from_transaction_id' => $transactionId,
-                    'to_transaction_id' => $personalTxId,
-                    'transfer_type' => 'owner_draw',
-                    'created_at' => date('Y-m-d H:i:s'),
-                ]);
-
-                $this->flash('success', 'Transaction added and Owner Draw linked to Personal Budget.');
-                $returnTo = $data['return_to'] ?? "/transactions/{$month}";
-                return $this->redirect($response, $returnTo);
             }
+        } catch (\Exception $e) {
+            error_log("Transaction Create Error: " . $e->getMessage() . "\n" . $e->getTraceAsString());
+            $this->flash('error', 'Unexpected error: ' . $e->getMessage());
+            return $this->redirect($response, "/transactions/{$month}");
         }
 
         $this->flash('success', 'Transaction added.');
