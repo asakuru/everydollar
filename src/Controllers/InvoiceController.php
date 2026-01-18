@@ -260,4 +260,48 @@ class InvoiceController extends BaseController
         $this->flash('success', 'Invoice marked as paid.');
         return $this->redirect($response, '/invoices');
     }
+
+    /**
+     * Delete an invoice
+     */
+    public function delete(Request $request, Response $response, array $args): Response
+    {
+        $id = (int) $args['id'];
+        $entityId = EntityController::getCurrentEntityId();
+
+        $invoice = $this->db->fetch(
+            "SELECT * FROM invoices WHERE id = ? AND entity_id = ?",
+            [$id, $entityId]
+        );
+
+        if (!$invoice) {
+            $this->flash('error', 'Invoice not found.');
+            return $this->redirect($response, '/invoices');
+        }
+
+        // If Paid, remove linked transaction first
+        if (!empty($invoice['paid_transaction_id'])) {
+            $transactionId = $invoice['paid_transaction_id'];
+
+            // Get transaction details for balance reversal
+            $transaction = $this->db->fetch("SELECT * FROM transactions WHERE id = ?", [$transactionId]);
+
+            if ($transaction && !empty($transaction['account_id'])) {
+                // Reverse balance update: Pass negative amount with same type to reverse effect
+                AccountController::updateBalanceForTransaction(
+                    $this->db,
+                    (int) $transaction['account_id'],
+                    -(int) $transaction['amount_cents'],
+                    $transaction['type']
+                );
+            }
+
+            $this->db->delete('transactions', 'id = ?', [$transactionId]);
+        }
+
+        $this->db->delete('invoices', 'id = ?', [$id]);
+
+        $this->flash('success', 'Invoice deleted.');
+        return $this->redirect($response, '/invoices');
+    }
 }
