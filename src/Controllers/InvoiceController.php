@@ -152,7 +152,7 @@ class InvoiceController extends BaseController
         $id = (int) $args['id'];
         $entityId = EntityController::getCurrentEntityId();
 
-        $this->db->update('invoices', $id, [
+        $this->db->update('invoices', [
             'status' => 'sent',
             'updated_at' => date('Y-m-d H:i:s'),
         ], 'id = ? AND entity_id = ?', [$id, $entityId]);
@@ -243,12 +243,12 @@ class InvoiceController extends BaseController
         }
 
         // Update Invoice
-        $this->db->update('invoices', $id, [
+        $this->db->update('invoices', [
             'status' => 'paid',
             'paid_date' => $paidDate,
             'paid_transaction_id' => $transactionId,
             'updated_at' => date('Y-m-d H:i:s'),
-        ]);
+        ], 'id = ?', [$id]);
 
         $this->flash('success', 'Invoice marked as paid.');
         return $this->redirect($response, '/invoices');
