@@ -96,6 +96,7 @@ $app->group('', function (RouteCollectorProxy $group) {
     $group->get('/accounts/{id}/edit', [AccountController::class, 'showEdit']);
     $group->post('/accounts/{id}/update', [AccountController::class, 'update']);
     $group->post('/accounts/{id}/archive', [AccountController::class, 'archive']);
+    $group->post('/accounts/{id}/delete', [AccountController::class, 'delete']);
     $group->post('/accounts/{id}/adjust', [AccountController::class, 'adjustBalance']);
 
     // LLC Feature Routes

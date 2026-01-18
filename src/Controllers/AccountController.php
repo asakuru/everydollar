@@ -225,6 +225,41 @@ class AccountController extends BaseController
     }
 
     /**
+     * Delete an account
+     */
+    public function delete(Request $request, Response $response, array $args): Response
+    {
+        $accountId = (int) $args['id'];
+        $entityId = EntityController::getCurrentEntityId();
+
+        $account = $this->db->fetch(
+            "SELECT * FROM accounts WHERE id = ? AND entity_id = ?",
+            [$accountId, $entityId]
+        );
+
+        if (!$account) {
+            $this->flash('error', 'Account not found.');
+            return $this->redirect($response, '/accounts');
+        }
+
+        // Check for transactions
+        $transactionCount = $this->db->fetchColumn(
+            "SELECT COUNT(*) FROM transactions WHERE account_id = ?",
+            [$accountId]
+        );
+
+        if ($transactionCount > 0) {
+            $this->flash('error', 'Cannot delete account with existing transactions. Please archive it instead.');
+            return $this->redirect($response, '/accounts');
+        }
+
+        $this->db->execute("DELETE FROM accounts WHERE id = ?", [$accountId]);
+
+        $this->flash('success', 'Account deleted permanently.');
+        return $this->redirect($response, '/accounts');
+    }
+
+    /**
      * Update account balance when a transaction is created/updated
      * Called from TransactionController
      */

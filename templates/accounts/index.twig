@@ -40,10 +40,16 @@
                         ${{ (account.balance_cents / 100)|number_format(2) }}
                     </td>
                     <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                        <a href="{{ base_path('/accounts/' ~ account.id ~ '/edit') }}" class="text-emerald-400 hover:text-emerald-300 mr-4">Edit</a>
-                         <form action="{{ base_path('/accounts/' ~ account.id ~ '/archive') }}" method="POST" class="inline" onsubmit="return confirm('Are you sure you want to archive this account?');">
+                        <a href="{{ base_path('/accounts/' ~ account.id ~ '/edit') }}" class="text-emerald-400 hover:text-emerald-300 mr-2">Edit</a>
+                        
+                        <form action="{{ base_path('/accounts/' ~ account.id ~ '/archive') }}" method="POST" class="inline" onsubmit="return confirm('Archive this account? It will be hidden from lists.');">
                             {{ csrf_field()|raw }}
-                            <button type="submit" class="text-red-400 hover:text-red-300">Archive</button>
+                            <button type="submit" class="text-gray-400 hover:text-gray-300 mr-2">Archive</button>
+                        </form>
+
+                        <form action="{{ base_path('/accounts/' ~ account.id ~ '/delete') }}" method="POST" class="inline" onsubmit="return confirm('DELETE this account? This cannot be undone.');">
+                            {{ csrf_field()|raw }}
+                            <button type="submit" class="text-red-500 hover:text-red-400 font-bold">Delete</button>
                         </form>
                     </td>
                 </tr>
