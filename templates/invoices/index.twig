@@ -59,6 +59,11 @@
                                 Mark Paid
                             </button>
                         {% endif %}
+                        
+                        <form action="{{ base_path('/invoices/' ~ invoice.id ~ '/delete') }}" method="POST" class="inline" onsubmit="return confirm('Delete this invoice? This cannot be undone.');">
+                            {{ csrf_field()|raw }}
+                            <button type="submit" class="text-red-400 hover:text-red-300 ml-2">Delete</button>
+                        </form>
                     </td>
                 </tr>
                 {% else %}

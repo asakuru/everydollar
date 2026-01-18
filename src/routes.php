@@ -109,6 +109,7 @@ $app->group('', function (RouteCollectorProxy $group) {
     $group->post('/invoices/store', [InvoiceController::class, 'create']);
     $group->post('/invoices/{id}/sent', [InvoiceController::class, 'markSent']);
     $group->post('/invoices/{id}/paid', [InvoiceController::class, 'markPaid']);
+    $group->post('/invoices/{id}/delete', [InvoiceController::class, 'delete']);
 
     // Reports
     $group->get('/reports', [ReportsController::class, 'index'])->setName('reports');
