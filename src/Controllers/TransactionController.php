@@ -222,13 +222,40 @@ class TransactionController extends BaseController
             );
 
             if (!$budgetMonth) {
-                $budgetMonthId = $this->db->insert('budget_months', [
-                    'household_id' => $householdId,
-                    'entity_id' => $entityId,
-                    'month_yyyymm' => $month,
-                    'created_at' => date('Y-m-d H:i:s'),
-                    'updated_at' => date('Y-m-d H:i:s'),
-                ]);
+                try {
+                    $budgetMonthId = $this->db->insert('budget_months', [
+                        'household_id' => $householdId,
+                        'entity_id' => $entityId,
+                        'month_yyyymm' => $month,
+                        'created_at' => date('Y-m-d H:i:s'),
+                        'updated_at' => date('Y-m-d H:i:s'),
+                    ]);
+                } catch (\PDOException $e) {
+                    // SELF-HEALING: Check for specific schema issue (wrong unique index)
+                    if (str_contains($e->getMessage(), "idx_household_month") && str_contains($e->getMessage(), "Duplicate entry")) {
+                        // Drop the restrictive index and replace it with the correct entity-aware one
+                        try {
+                            $pdo = $this->db->getPdo();
+                            $pdo->exec("DROP INDEX idx_household_month ON budget_months");
+                            $pdo->exec("CREATE UNIQUE INDEX idx_entity_month ON budget_months (entity_id, month_yyyymm)");
+
+                            // Retry Insert
+                            $budgetMonthId = $this->db->insert('budget_months', [
+                                'household_id' => $householdId,
+                                'entity_id' => $entityId,
+                                'month_yyyymm' => $month,
+                                'created_at' => date('Y-m-d H:i:s'),
+                                'updated_at' => date('Y-m-d H:i:s'),
+                            ]);
+                        } catch (\Throwable $fixError) {
+                            // If fixing failed, throw original error
+                            throw $e;
+                        }
+                    } else {
+                        // Not the specific error we can fix
+                        throw $e;
+                    }
+                }
             } else {
                 $budgetMonthId = $budgetMonth['id'];
             }
