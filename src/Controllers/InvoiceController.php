@@ -16,12 +16,9 @@ use Slim\Views\Twig;
 
 class InvoiceController extends BaseController
 {
-    private Database $db;
-
     public function __construct(Twig $twig, Database $db)
     {
         parent::__construct($twig, $db);
-        $this->db = $db;
     }
 
     /**
