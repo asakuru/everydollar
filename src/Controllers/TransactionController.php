@@ -344,8 +344,7 @@ class TransactionController extends BaseController
                                 'household_id' => $householdId,
                                 'entity_id' => $personalEntity['id'],
                                 'name' => 'Income',
-                                'sort_order' => 0,
-                                'hide_from_budget' => 0
+                                'sort_order' => 0
                             ]);
                         }
 
