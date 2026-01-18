@@ -83,7 +83,7 @@ class AccountController extends BaseController
 
         $name = trim($data['name'] ?? '');
         $type = $data['type'] ?? 'checking';
-        $balance = (float) ($data['starting_balance'] ?? 0);
+        $balance = (float) ($data['initial_balance'] ?? 0);
         $balanceCents = (int) round($balance * 100);
 
         if (empty($name)) {
