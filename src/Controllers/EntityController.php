@@ -47,7 +47,7 @@ class EntityController extends BaseController
 
         // Verify entity belongs to household
         $entity = $this->db->fetch(
-            "SELECT id FROM entities WHERE id = ? AND household_id = ?",
+            "SELECT id, name FROM entities WHERE id = ? AND household_id = ?",
             [$entityId, $householdId]
         );
 
