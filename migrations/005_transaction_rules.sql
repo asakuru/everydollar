@@ -1,9 +1,9 @@
 CREATE TABLE IF NOT EXISTS transaction_rules (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    household_id INT NOT NULL,
+    id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    household_id INT UNSIGNED NOT NULL,
     search_term VARCHAR(255) NOT NULL,
     match_type ENUM('contains', 'exact') DEFAULT 'contains',
-    category_id INT NOT NULL,
+    category_id INT UNSIGNED NOT NULL,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     FOREIGN KEY (household_id) REFERENCES households(id) ON DELETE CASCADE,
