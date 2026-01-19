@@ -35,9 +35,10 @@ class BudgetController extends BaseController
         }
 
         $householdId = $this->householdId();
+        $entityId = EntityController::getCurrentEntityId();
 
         // Get or create budget month
-        $budgetMonth = $this->getOrCreateBudgetMonth($householdId, $month);
+        $budgetMonth = $this->getOrCreateBudgetMonth($householdId, $month, $entityId);
 
         // Get income items
         $incomeItems = $this->db->fetchAll(
@@ -46,7 +47,7 @@ class BudgetController extends BaseController
         );
 
         // Get categories with planned and actual amounts
-        $categoryGroups = $this->getCategoriesWithAmounts($householdId, $budgetMonth['id']);
+        $categoryGroups = $this->getCategoriesWithAmounts($householdId, $budgetMonth['id'], $entityId);
 
         // Calculate totals
         $totalIncome = array_sum(array_column($incomeItems, 'planned_cents'));
@@ -309,74 +310,88 @@ class BudgetController extends BaseController
     }
 
     /**
-     * Get or create a budget month record
+     * Get OR create a budget month record
      */
-    private function getOrCreateBudgetMonth(int $householdId, string $month): array
+    private function getOrCreateBudgetMonth(int $householdId, string $month, ?int $entityId = null): array
     {
-        $budgetMonth = $this->db->fetch(
-            "SELECT * FROM budget_months WHERE household_id = ? AND month_yyyymm = ?",
-            [$householdId, $month]
-        );
+        $sql = "SELECT * FROM budget_months WHERE household_id = ? AND month_yyyymm = ?";
+        $params = [$householdId, $month];
+
+        if ($entityId) {
+            $sql .= " AND entity_id = ?";
+            $params[] = $entityId;
+        } else {
+            $sql .= " AND entity_id IS NULL";
+        }
+
+        $budgetMonth = $this->db->fetch($sql, $params);
 
         if (!$budgetMonth) {
-            $id = $this->db->insert('budget_months', [
+            $this->db->insert('budget_months', [
                 'household_id' => $householdId,
+                'entity_id' => $entityId,
                 'month_yyyymm' => $month,
                 'created_at' => date('Y-m-d H:i:s'),
                 'updated_at' => date('Y-m-d H:i:s'),
             ]);
 
-            $budgetMonth = [
-                'id' => $id,
-                'household_id' => $householdId,
-                'month_yyyymm' => $month,
-            ];
+            $budgetMonth = $this->db->fetch($sql, $params);
         }
 
         return $budgetMonth;
     }
 
     /**
-     * Get categories grouped with planned and actual amounts
+     * Get categories with amounts for a budget month
      */
-    private function getCategoriesWithAmounts(int $householdId, int $budgetMonthId): array
+    private function getCategoriesWithAmounts(int $householdId, int $budgetMonthId, ?int $entityId = null): array
     {
-        // Get all category groups with categories
-        $groups = $this->db->fetchAll(
-            "SELECT * FROM category_groups WHERE household_id = ? ORDER BY sort_order",
-            [$householdId]
-        );
+        // Get groups
+        $sql = "SELECT * FROM category_groups WHERE household_id = ?";
+        $params = [$householdId];
 
-        $result = [];
+        if ($entityId) {
+            $sql .= " AND entity_id = ?";
+            $params[] = $entityId;
+        } else {
+            $sql .= " AND (entity_id IS NULL OR entity_id = 0)"; // Handle legacy or default
+        }
 
-        foreach ($groups as $group) {
+        $sql .= " ORDER BY sort_order ASC";
+
+        $groups = $this->db->fetchAll($sql, $params);
+
+        foreach ($groups as &$group) {
+            // Get categories
             $categories = $this->db->fetchAll(
-                "SELECT c.*,
-                    COALESCE(bi.planned_cents, 0) as planned_cents,
-                    COALESCE((
-                        SELECT SUM(ABS(t.amount_cents))
-                        FROM transactions t
-                        WHERE t.category_id = c.id
-                        AND t.budget_month_id = ?
-                        AND t.type = 'expense'
-                    ), 0) as actual_cents
+                "SELECT c.*, 
+                        bi.id as budget_item_id,
+                        COALESCE(bi.planned_cents, 0) as planned_cents
                  FROM categories c
                  LEFT JOIN budget_items bi ON bi.category_id = c.id AND bi.budget_month_id = ?
                  WHERE c.category_group_id = ? AND c.archived = 0
-                 ORDER BY c.sort_order",
-                [$budgetMonthId, $budgetMonthId, $group['id']]
+                 ORDER BY c.sort_order ASC",
+                [$budgetMonthId, $group['id']]
             );
 
-            // Calculate remaining for each category
+            // Calculate actuals
             foreach ($categories as &$cat) {
-                $cat['remaining_cents'] = $cat['planned_cents'] - $cat['actual_cents'];
+                $actualCents = $this->db->fetchColumn(
+                    "SELECT COALESCE(SUM(ABS(amount_cents)), 0) 
+                     FROM transactions 
+                     WHERE category_id = ? 
+                     AND budget_month_id = ?
+                     AND type = 'expense'",
+                    [$cat['id'], $budgetMonthId]
+                );
+                $cat['actual_cents'] = $actualCents;
+                $cat['remaining_cents'] = $cat['planned_cents'] - $actualCents;
             }
 
             $group['categories'] = $categories;
-            $result[] = $group;
         }
 
-        return $result;
+        return $groups;
     }
 
     /**
