@@ -151,10 +151,18 @@ class CategoryController extends BaseController
         $householdId = $this->householdId();
 
         // Verify ownership
-        $group = $this->db->fetch(
-            "SELECT id FROM category_groups WHERE id = ? AND household_id = ?",
-            [$groupId, $householdId]
-        );
+        $sql = "SELECT id FROM category_groups WHERE id = ? AND household_id = ?";
+        $params = [$groupId, $householdId];
+
+        $entityId = \App\Controllers\EntityController::getCurrentEntityId();
+        if ($entityId) {
+            $sql .= " AND entity_id = ?";
+            $params[] = $entityId;
+        } else {
+            $sql .= " AND (entity_id IS NULL OR entity_id = 0)";
+        }
+
+        $group = $this->db->fetch($sql, $params);
 
         if (!$group) {
             $this->flash('error', 'Category group not found.');
@@ -187,10 +195,18 @@ class CategoryController extends BaseController
         $householdId = $this->householdId();
 
         // Verify group belongs to household
-        $group = $this->db->fetch(
-            "SELECT id FROM category_groups WHERE id = ? AND household_id = ?",
-            [$groupId, $householdId]
-        );
+        $sql = "SELECT id FROM category_groups WHERE id = ? AND household_id = ?";
+        $params = [$groupId, $householdId];
+
+        $entityId = \App\Controllers\EntityController::getCurrentEntityId();
+        if ($entityId) {
+            $sql .= " AND entity_id = ?";
+            $params[] = $entityId;
+        } else {
+            $sql .= " AND (entity_id IS NULL OR entity_id = 0)";
+        }
+
+        $group = $this->db->fetch($sql, $params);
 
         if (!$group) {
             $this->flash('error', 'Category group not found.');
@@ -235,12 +251,20 @@ class CategoryController extends BaseController
         $householdId = $this->householdId();
 
         // Verify ownership
-        $category = $this->db->fetch(
-            "SELECT c.id FROM categories c
-             JOIN category_groups cg ON cg.id = c.category_group_id
-             WHERE c.id = ? AND cg.household_id = ?",
-            [$categoryId, $householdId]
-        );
+        $sql = "SELECT c.id FROM categories c
+                JOIN category_groups cg ON cg.id = c.category_group_id
+                WHERE c.id = ? AND cg.household_id = ?";
+        $params = [$categoryId, $householdId];
+
+        $entityId = \App\Controllers\EntityController::getCurrentEntityId();
+        if ($entityId) {
+            $sql .= " AND cg.entity_id = ?";
+            $params[] = $entityId;
+        } else {
+            $sql .= " AND (cg.entity_id IS NULL OR cg.entity_id = 0)";
+        }
+
+        $category = $this->db->fetch($sql, $params);
 
         if (!$category) {
             $this->flash('error', 'Category not found.');
@@ -273,12 +297,20 @@ class CategoryController extends BaseController
         $householdId = $this->householdId();
 
         // Verify ownership
-        $category = $this->db->fetch(
-            "SELECT c.id FROM categories c
-             JOIN category_groups cg ON cg.id = c.category_group_id
-             WHERE c.id = ? AND cg.household_id = ?",
-            [$categoryId, $householdId]
-        );
+        $sql = "SELECT c.id FROM categories c
+                JOIN category_groups cg ON cg.id = c.category_group_id
+                WHERE c.id = ? AND cg.household_id = ?";
+        $params = [$categoryId, $householdId];
+
+        $entityId = \App\Controllers\EntityController::getCurrentEntityId();
+        if ($entityId) {
+            $sql .= " AND cg.entity_id = ?";
+            $params[] = $entityId;
+        } else {
+            $sql .= " AND (cg.entity_id IS NULL OR cg.entity_id = 0)";
+        }
+
+        $category = $this->db->fetch($sql, $params);
 
         if (!$category) {
             $this->flash('error', 'Category not found.');
