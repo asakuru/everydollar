@@ -25,8 +25,18 @@
     </div>
 
     <!-- Create Rule -->
-    <div class="bg-gray-800 rounded-xl border border-gray-700 p-6">
-        <h2 class="text-lg font-semibold text-white mb-4">Create New Rule</h2>
+    <div class="bg-gray-800 rounded-xl border border-gray-700 p-6 mb-8">
+        <div class="flex justify-between items-center mb-4">
+            <h2 class="text-lg font-semibold text-white">Create New Rule</h2>
+            
+            <form action="{{ base_path('/settings/rules/seed') }}" method="POST" onsubmit="return confirm('This will add common rules for known merchants. Existing rules will be kept. Continue?');">
+                {{ csrf_field()|raw }}
+                <button type="submit" class="text-sm px-3 py-1.5 bg-gray-700 text-gray-300 rounded hover:bg-gray-600 transition-colors">
+                    ✨ Seed Defaults
+                </button>
+            </form>
+        </div>
+        
         <form action="{{ base_path('/settings/rules') }}" method="POST">
             {{ csrf_field()|raw }}
             <div class="grid grid-cols-1 md:grid-cols-12 gap-4 items-end">

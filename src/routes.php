@@ -119,6 +119,7 @@ $app->group('', function (RouteCollectorProxy $group) {
     $group->get('/settings/security', [SettingsController::class, 'security'])->setName('settings.security');
     $group->get('/settings/rules', [\App\Controllers\RuleController::class, 'index'])->setName('settings.rules');
     $group->post('/settings/rules', [\App\Controllers\RuleController::class, 'create']);
+    $group->post('/settings/rules/seed', [\App\Controllers\RuleController::class, 'seed']);
     $group->post('/settings/rules/{id}/delete', [\App\Controllers\RuleController::class, 'delete']);
 
     // Invite Management (for household owner)

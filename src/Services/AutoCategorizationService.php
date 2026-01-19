@@ -16,9 +16,91 @@ class AutoCategorizationService
     private Database $db;
     private array $rulesCache = [];
 
+    private const DEFAULT_RULES = [
+        // Food
+        'Walmart' => 'Groceries',
+        'Kroger' => 'Groceries',
+        'Aldi' => 'Groceries',
+        'Whole Foods' => 'Groceries',
+        'Publix' => 'Groceries',
+        'Costco' => 'Groceries',
+        'McDonald\'s' => 'Restaurants',
+        'Chick-fil-A' => 'Restaurants',
+        'Chipotle' => 'Restaurants',
+        'Starbucks' => 'Coffee Shops',
+        'Dunkin' => 'Coffee Shops',
+
+        // Transportation
+        'Shell' => 'Gas',
+        'Exxon' => 'Gas',
+        'BP' => 'Gas',
+        'Chevron' => 'Gas',
+        'Wawa' => 'Gas',
+        'Uber' => 'Public Transit',
+        'Lyft' => 'Public Transit',
+
+        // Utilities
+        'AT&T' => 'Phone',
+        'Verizon' => 'Phone',
+        'T-Mobile' => 'Phone',
+        'Comcast' => 'Internet',
+        'Xfinity' => 'Internet',
+        'Spectrum' => 'Internet',
+
+        // Personal
+        'Netflix' => 'Subscriptions',
+        'Spotify' => 'Subscriptions',
+        'Hulu' => 'Subscriptions',
+        'Disney+' => 'Subscriptions',
+        'Amazon Prime' => 'Subscriptions',
+        'Apple.com' => 'Subscriptions',
+        'Target' => 'Clothing',
+        'T.J. Maxx' => 'Clothing',
+
+        // Home
+        'Home Depot' => 'Home Improvement',
+        'Lowe\'s' => 'Home Improvement',
+    ];
+
     public function __construct(Database $db)
     {
         $this->db = $db;
+    }
+
+    /**
+     * Seed default rules for a household
+     */
+    public function seedDefaultRules(int $householdId): int
+    {
+        $count = 0;
+
+        // 1. Get all category IDs by name for this household
+        $categories = $this->db->fetchAll(
+            "SELECT id, name FROM categories 
+             WHERE category_group_id IN (
+                SELECT id FROM category_groups WHERE household_id = ?
+             )",
+            [$householdId]
+        );
+
+        $catMap = []; // Name -> ID
+        foreach ($categories as $cat) {
+            $catMap[$cat['name']] = $cat['id'];
+        }
+
+        // 2. Get existing rules to avoid duplicates
+        $existingRules = $this->getRules($householdId);
+        $existingTerms = array_map(fn($r) => strtolower($r['search_term']), $existingRules);
+
+        // 3. Insert defaults if category exists and rule doesn't
+        foreach (self::DEFAULT_RULES as $term => $catName) {
+            if (isset($catMap[$catName]) && !in_array(strtolower($term), $existingTerms)) {
+                $this->createRule($householdId, $term, $catMap[$catName], 'contains');
+                $count++;
+            }
+        }
+
+        return $count;
     }
 
     /**
