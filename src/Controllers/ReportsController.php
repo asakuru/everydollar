@@ -41,17 +41,32 @@ class ReportsController extends BaseController
             "SELECT 
                 cg.name as group_name,
                 c.name as category_name,
-                SUM(ABS(t.amount_cents)) as total_cents,
+                SUM(ABS(sub.amount)) as total_cents,
                 COUNT(*) as transaction_count
-             FROM transactions t
-             JOIN categories c ON c.id = t.category_id
+             FROM (
+                -- Regular Transactions
+                SELECT t.category_id, t.amount_cents as amount
+                FROM transactions t
+                WHERE t.household_id = ? 
+                AND t.type = 'expense'
+                AND t.date >= ? AND t.date <= ?
+                AND t.category_id IS NOT NULL
+
+                UNION ALL
+
+                -- Split Transactions
+                SELECT ts.category_id, ts.amount_cents as amount
+                FROM transaction_splits ts
+                JOIN transactions t ON t.id = ts.transaction_id
+                WHERE t.household_id = ?
+                AND t.type = 'expense'
+                AND t.date >= ? AND t.date <= ?
+             ) as sub
+             JOIN categories c ON c.id = sub.category_id
              JOIN category_groups cg ON cg.id = c.category_group_id
-             WHERE t.household_id = ?
-             AND t.type = 'expense'
-             AND t.date >= ? AND t.date <= ?
              GROUP BY cg.id, c.id
              ORDER BY total_cents DESC",
-            [$householdId, $startDate, $endDate]
+            [$householdId, $startDate, $endDate, $householdId, $startDate, $endDate]
         );
 
         // Get monthly totals

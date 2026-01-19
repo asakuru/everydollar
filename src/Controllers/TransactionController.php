@@ -178,26 +178,37 @@ class TransactionController extends BaseController
             $categoryId = !empty($data['category_id']) ? (int) $data['category_id'] : null;
             $accountId = !empty($data['account_id']) ? (int) $data['account_id'] : null;
 
-            // Validate
-            $errors = [];
-            if (empty($payee)) {
-                $errors[] = 'Payee is required.';
-            }
-            if ($amount <= 0) {
-                $errors[] = 'Amount must be greater than 0.';
-            }
-            if (!$entityId && isset($data['entity_id'])) {
-                $entityId = (int) $data['entity_id'];
-            }
+            // Handle Splits
+            $splits = $data['splits'] ?? [];
+            if (!empty($splits)) {
+                $splitTotal = 0;
+                $cleanSplits = [];
+                foreach ($splits as $split) {
+                    $sAmount = $this->parseMoney($split['amount'] ?? '0');
+                    if ($sAmount > 0 && !empty($split['category_id'])) {
+                        $splitTotal += $sAmount;
+                        $cleanSplits[] = [
+                            'category_id' => (int) $split['category_id'],
+                            'amount_cents' => $sAmount,
+                            'memo' => trim($split['memo'] ?? '')
+                        ];
+                    }
+                }
 
-            $month = substr($date, 0, 7);
+                if ($splitTotal !== $amount) {
+                    $errors[] = "Split total (" . number_format($splitTotal / 100, 2) . ") does not match transaction amount (" . number_format($amount / 100, 2) . ").";
+                } else {
+                    $categoryId = null; // Main transaction has no single category
+                }
+            }
 
             if (!empty($errors)) {
                 $this->flash('error', implode(' ', $errors));
                 return $this->redirect($response, "/transactions/{$month}");
             }
 
-            // Verify category belongs to household/entity if provided
+            // ... (Category verification code removed as it's handled per split or main cat)
+            // Verify category belongs to household/entity if provided (ONLY if not split)
             if ($categoryId) {
                 $category = $this->db->fetch(
                     "SELECT c.id, c.name FROM categories c
@@ -268,6 +279,7 @@ class TransactionController extends BaseController
 
             // Check for Owner Draw intent
             $isOwnerDraw = false;
+            // Only check owner draw if singular category
             if ($categoryId && isset($category['name'])) {
                 if (stripos($category['name'], 'Owner Draw') !== false) {
                     $isOwnerDraw = true;
@@ -291,6 +303,18 @@ class TransactionController extends BaseController
                 'created_by_user_id' => $userId,
                 'is_transfer' => $isOwnerDraw ? 1 : 0,
             ]);
+
+            // Insert Splits
+            if (!empty($cleanSplits)) {
+                foreach ($cleanSplits as $split) {
+                    $this->db->insert('transaction_splits', [
+                        'transaction_id' => $transactionId,
+                        'category_id' => $split['category_id'],
+                        'amount_cents' => $split['amount_cents'],
+                        'memo' => $split['memo'] ?: null
+                    ]);
+                }
+            }
 
             // Update Account Balance
             if ($accountId) {
@@ -458,8 +482,14 @@ class TransactionController extends BaseController
             [$transaction['entity_id']]
         );
 
+        $splits = $this->db->fetchAll(
+            "SELECT * FROM transaction_splits WHERE transaction_id = ?",
+            [$transactionId]
+        );
+
         return $this->render($response, 'transactions/edit.twig', [
             'transaction' => $transaction,
+            'splits' => $splits,
             'categories' => $categories,
             'accounts' => $accounts,
         ]);
@@ -506,8 +536,33 @@ class TransactionController extends BaseController
             AccountController::updateBalanceForTransaction($this->db, $oldAccountId, -$transaction['amount_cents'], $transaction['type']); // Reverse
         }
 
-        // Apply new transaction effect (will happen after update or we can calculate net)
-        // Easier to just revert old and apply new to keep logic simple
+        // Handle Splits
+        $splits = $data['splits'] ?? [];
+        $cleanSplits = [];
+
+        // If splits are provided, process them
+        if (!empty($splits)) {
+            $splitTotal = 0;
+            foreach ($splits as $split) {
+                $sAmount = $this->parseMoney($split['amount'] ?? '0');
+                if ($sAmount > 0 && !empty($split['category_id'])) {
+                    $splitTotal += $sAmount;
+                    $cleanSplits[] = [
+                        'category_id' => (int) $split['category_id'],
+                        'amount_cents' => $sAmount,
+                        'memo' => trim($split['memo'] ?? '')
+                    ];
+                }
+            }
+
+            if ($splitTotal !== $amount) {
+                $this->flash('error', "Split total (" . number_format($splitTotal / 100, 2) . ") does not match transaction amount (" . number_format($amount / 100, 2) . ").");
+                return $this->redirect($response, "/transactions/{$month}");
+            }
+
+            // Splitting logic overrides category_id
+            $categoryId = null;
+        }
 
         $month = substr($date, 0, 7);
 
@@ -541,6 +596,28 @@ class TransactionController extends BaseController
             'account_id' => $accountId,
             'updated_at' => date('Y-m-d H:i:s'),
         ], 'id = ?', [$transactionId]);
+
+        // Manage Splits
+        // Always delete old splits and recreate if cleanSplits is present OR if we are reverting to no splits (if splits array passed but empty? No, usually form sends empty if not used)
+        // Wait, if user Switches from Split -> Single, they likely select a category.
+        // If $categoryId IS SET, we should remove splits.
+        // If $cleanSplits IS SET, we should remove old splits and add new ones.
+
+        if (!empty($cleanSplits) || $categoryId) {
+            // Clear existing splits
+            $this->db->delete('transaction_splits', 'transaction_id = ?', [$transactionId]);
+        }
+
+        if (!empty($cleanSplits)) {
+            foreach ($cleanSplits as $split) {
+                $this->db->insert('transaction_splits', [
+                    'transaction_id' => $transactionId,
+                    'category_id' => $split['category_id'],
+                    'amount_cents' => $split['amount_cents'],
+                    'memo' => $split['memo'] ?: null
+                ]);
+            }
+        }
 
         // Apply new balance effect
         if ($accountId) {

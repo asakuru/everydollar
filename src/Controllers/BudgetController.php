@@ -376,7 +376,8 @@ class BudgetController extends BaseController
 
             // Calculate actuals
             foreach ($categories as &$cat) {
-                $actualCents = $this->db->fetchColumn(
+                // Regular Transactions Sum
+                $regularSum = $this->db->fetchColumn(
                     "SELECT COALESCE(SUM(ABS(amount_cents)), 0) 
                      FROM transactions 
                      WHERE category_id = ? 
@@ -384,7 +385,20 @@ class BudgetController extends BaseController
                      AND type = 'expense'",
                     [$cat['id'], $budgetMonthId]
                 );
-                $cat['actual_cents'] = $actualCents;
+
+                // Split Transactions Sum
+                $splitSum = $this->db->fetchColumn(
+                    "SELECT COALESCE(SUM(ABS(ts.amount_cents)), 0)
+                     FROM transaction_splits ts
+                     JOIN transactions t ON t.id = ts.transaction_id
+                     WHERE ts.category_id = ?
+                     AND t.budget_month_id = ?
+                     AND t.type = 'expense'",
+                    [$cat['id'], $budgetMonthId]
+                );
+
+                $cat['actual_cents'] = $regularSum + $splitSum;
+                $actualCents = $cat['actual_cents'];
 
                 if (!empty($cat['is_fund'])) {
                     // Sinking Fund Logic: Lifetime Planned - Lifetime Spent
@@ -407,12 +421,24 @@ class BudgetController extends BaseController
                     );
                     $endOfThisMonth = date('Y-m-t', strtotime($monthStr . '-01'));
 
-                    $lifetimeSpent = $this->db->fetchColumn(
+                    // Lifetime Regular
+                    $lifetimeRegular = $this->db->fetchColumn(
                         "SELECT COALESCE(SUM(ABS(amount_cents)), 0)
                          FROM transactions
                          WHERE category_id = ? AND date <= ? AND type = 'expense'",
                         [$cat['id'], $endOfThisMonth]
                     );
+
+                    // Lifetime Splits
+                    $lifetimeSplits = $this->db->fetchColumn(
+                        "SELECT COALESCE(SUM(ABS(ts.amount_cents)), 0)
+                         FROM transaction_splits ts
+                         JOIN transactions t ON t.id = ts.transaction_id
+                         WHERE ts.category_id = ? AND t.date <= ? AND t.type = 'expense'",
+                        [$cat['id'], $endOfThisMonth]
+                    );
+
+                    $lifetimeSpent = $lifetimeRegular + $lifetimeSplits;
 
                     $cat['remaining_cents'] = $lifetimePlanned - $lifetimeSpent;
                 } else {

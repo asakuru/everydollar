@@ -58,23 +58,166 @@
                 </select>
             </div>
             
-            <div>
+            <div class="col-span-1">
                 <label class="block text-sm text-gray-400 mb-1">Category</label>
-                <select name="category_id"
-                        class="w-full px-4 py-2 bg-gray-900 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-emerald-500">
-                    <option value="">-- Uncategorized --</option>
-                    {% set current_group = '' %}
-                    {% for cat in categories %}
-                        {% if cat.group_name != current_group %}
-                            {% if current_group != '' %}</optgroup>{% endif %}
-                            <optgroup label="{{ cat.group_name }}">
-                            {% set current_group = cat.group_name %}
-                        {% endif %}
-                        <option value="{{ cat.id }}" {% if cat.id == transaction.category_id %}selected{% endif %}>{{ cat.name }}</option>
-                    {% endfor %}
-                    {% if current_group != '' %}</optgroup>{% endif %}
-                </select>
+                <div class="flex space-x-2">
+                    <select name="category_id" id="main-category-select"
+                            class="w-full px-4 py-2 bg-gray-900 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-emerald-500">
+                        <option value="">-- Uncategorized --</option>
+                        {% set current_group = '' %}
+                        {% for cat in categories %}
+                            {% if cat.group_name != current_group %}
+                                {% if current_group != '' %}</optgroup>{% endif %}
+                                <optgroup label="{{ cat.group_name }}">
+                                {% set current_group = cat.group_name %}
+                            {% endif %}
+                            <option value="{{ cat.id }}" {% if cat.id == transaction.category_id %}selected{% endif %}>{{ cat.name }}</option>
+                        {% endfor %}
+                        {% if current_group != '' %}</optgroup>{% endif %}
+                    </select>
+                    <button type="button" id="btn-toggle-split" 
+                            class="px-3 py-2 bg-gray-700 hover:bg-gray-600 text-gray-300 rounded-lg whitespace-nowrap"
+                            title="Split Transaction">
+                        Split
+                    </button>
+                </div>
+
+                 <!-- Hidden Split Fields -->
+                <div id="split-container" class="hidden mt-3 space-y-2 border-t border-gray-700 pt-3">
+                    <div class="text-sm text-gray-400 flex justify-between">
+                        <span>Splits</span>
+                        <span id="split-total-display">$0.00 / $0.00</span>
+                    </div>
+                    <div id="split-rows" class="space-y-2">
+                        <!-- Rows injected via JS -->
+                    </div>
+                    <button type="button" id="btn-add-split-row" class="text-xs text-emerald-400 hover:text-emerald-300">
+                        + Add Split Line
+                    </button>
+                </div>
             </div>
+
+             <script>
+                document.addEventListener('DOMContentLoaded', function() {
+                    const btnToggle = document.getElementById('btn-toggle-split');
+                    const splitContainer = document.getElementById('split-container');
+                    const mainSelect = document.getElementById('main-category-select');
+                    const splitRows = document.getElementById('split-rows');
+                    const amountInput = document.querySelector('input[name="amount"]');
+                    const totalDisplay = document.getElementById('split-total-display');
+                    let isSplit = false;
+
+                    // Categories data for JS
+                    const categories = [
+                        {% for cat in categories %}
+                        {id: {{ cat.id }}, name: "{{ cat.name|e('js') }}", group: "{{ cat.group_name|e('js') }}"},
+                        {% endfor %}
+                    ];
+
+                    // Existing Splits
+                    const existingSplits = [
+                        {% for split in splits %}
+                        {category_id: {{ split.category_id }}, amount: {{ split.amount_cents / 100 }}, memo: "{{ split.memo|e('js') }}"},
+                        {% endfor %}
+                    ];
+
+                    function init() {
+                        if (existingSplits.length > 0) {
+                            toggleSplit(true);
+                            existingSplits.forEach(s => addSplitRow(s));
+                            updateSplitTotal();
+                        }
+                    }
+
+                    btnToggle.addEventListener('click', function() {
+                        toggleSplit(!isSplit);
+                    });
+
+                    function toggleSplit(active) {
+                        isSplit = active;
+                        if (isSplit) {
+                            splitContainer.classList.remove('hidden');
+                            mainSelect.disabled = true;
+                            // mainSelect.value = ""; // Don't clear in Edit mode immediately, maybe user wants to cancel split
+                            btnToggle.classList.add('bg-emerald-600', 'text-white');
+                            btnToggle.classList.remove('bg-gray-700', 'text-gray-300');
+                            
+                            if (splitRows.children.length === 0 && existingSplits.length === 0) {
+                                addSplitRow();
+                                addSplitRow();
+                            }
+                            updateSplitTotal(); // Fix recursion calls
+                        } else {
+                            splitContainer.classList.add('hidden');
+                            mainSelect.disabled = false;
+                            btnToggle.classList.remove('bg-emerald-600', 'text-white');
+                            btnToggle.classList.add('bg-gray-700', 'text-gray-300');
+                        }
+                    }
+
+                    document.getElementById('btn-add-split-row').addEventListener('click', () => addSplitRow());
+
+                    function addSplitRow(data = null) {
+                        const index = splitRows.children.length;
+                        const row = document.createElement('div');
+                        row.className = 'flex space-x-2';
+                        
+                        const amountVal = data ? data.amount.toFixed(2) : '';
+                        const selCat = data ? data.category_id : '';
+
+                        row.innerHTML = `
+                            <select name="splits[${index}][category_id]" class="flex-1 px-2 py-1 bg-gray-900 border border-gray-600 rounded text-sm text-white">
+                                <option value="">Select...</option>
+                                ${generateCategoryOptions(selCat)}
+                            </select>
+                            <input type="text" name="splits[${index}][amount]" placeholder="0.00" value="${amountVal}"
+                                   class="w-24 px-2 py-1 bg-gray-900 border border-gray-600 rounded text-sm text-white split-amount"
+                                   oninput="updateSplitTotal()">
+                            <button type="button" onclick="this.parentElement.remove(); updateSplitTotal()" class="text-red-400 hover:text-red-300 px-1">&times;</button>
+                        `;
+                        splitRows.appendChild(row);
+                    }
+
+                    function generateCategoryOptions(selectedId) {
+                        let html = '';
+                        let currentGroup = '';
+                        categories.forEach(cat => {
+                            if (cat.group !== currentGroup) {
+                                if (currentGroup !== '') html += '</optgroup>';
+                                html += `<optgroup label="${cat.group}">`;
+                                currentGroup = cat.group;
+                            }
+                            const sel = cat.id == selectedId ? 'selected' : '';
+                            html += `<option value="${cat.id}" ${sel}>${cat.name}</option>`;
+                        });
+                        if (currentGroup !== '') html += '</optgroup>';
+                        return html;
+                    }
+
+                    window.updateSplitTotal = function() {
+                        let total = 0;
+                        document.querySelectorAll('.split-amount').forEach(inp => {
+                            total += parseFloat(inp.value.replace(/,/g, '')) || 0;
+                        });
+                        
+                        const mainAmount = parseFloat(amountInput.value.replace(/,/g, '')) || 0;
+                        totalDisplay.innerText = `$${total.toFixed(2)} / $${mainAmount.toFixed(2)}`;
+                        
+                        if (Math.abs(total - mainAmount) < 0.01) {
+                            totalDisplay.classList.add('text-emerald-400');
+                            totalDisplay.classList.remove('text-red-400');
+                        } else {
+                            totalDisplay.classList.add('text-red-400');
+                            totalDisplay.classList.remove('text-emerald-400');
+                        }
+                    };
+
+                    amountInput.addEventListener('input', updateSplitTotal);
+
+                    // Initialize
+                    init();
+                });
+            </script>
             
             <div>
                 <label class="block text-sm text-gray-400 mb-1">Memo (optional)</label>
