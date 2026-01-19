@@ -121,7 +121,9 @@ foreach ($files as $file) {
                     str_contains($msg, 'already exists') ||
                     str_contains($msg, 'Duplicate key') ||
                     str_contains($msg, 'errno: 121') ||
-                    str_contains($msg, "Check that column/key exists")
+                    str_contains($msg, "Check that column/key exists") ||
+                    str_contains($msg, "check that it exists") || // For DROP INDEX failure
+                    str_contains($msg, "Can't DROP")              // For DROP failure
                 ) {
                     echo "       -> Warning: Skipped duplicate/existing item.\n";
                     continue;
