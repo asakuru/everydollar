@@ -31,15 +31,23 @@ class CategoryController extends BaseController
         $month = $queryParams['month'] ?? date('Y-m');
 
         $householdId = $this->householdId();
+        $entityId = \App\Controllers\EntityController::getCurrentEntityId();
 
         // Get category with group
-        $category = $this->db->fetch(
-            "SELECT c.*, cg.name as group_name
-             FROM categories c
-             JOIN category_groups cg ON cg.id = c.category_group_id
-             WHERE c.id = ? AND cg.household_id = ?",
-            [$categoryId, $householdId]
-        );
+        $sql = "SELECT c.*, cg.name as group_name
+                FROM categories c
+                JOIN category_groups cg ON cg.id = c.category_group_id
+                WHERE c.id = ? AND cg.household_id = ?";
+        $params = [$categoryId, $householdId];
+
+        if ($entityId) {
+            $sql .= " AND cg.entity_id = ?";
+            $params[] = $entityId;
+        } else {
+            $sql .= " AND (cg.entity_id IS NULL OR cg.entity_id = 0)";
+        }
+
+        $category = $this->db->fetch($sql, $params);
 
         if (!$category) {
             $this->flash('error', 'Category not found.');
@@ -110,6 +118,7 @@ class CategoryController extends BaseController
         }
 
         $householdId = $this->householdId();
+        $entityId = \App\Controllers\EntityController::getCurrentEntityId();
 
         // Get max sort order
         $maxSort = $this->db->fetchColumn(
@@ -119,6 +128,7 @@ class CategoryController extends BaseController
 
         $this->db->insert('category_groups', [
             'household_id' => $householdId,
+            'entity_id' => $entityId,
             'name' => $name,
             'sort_order' => ($maxSort ?? -1) + 1,
             'created_at' => date('Y-m-d H:i:s'),
