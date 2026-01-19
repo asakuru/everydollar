@@ -26,78 +26,74 @@ class LLCDashboardController extends BaseController
      */
     public function index(Request $request, Response $response): Response
     {
-        try {
-            $entityId = \App\Controllers\EntityController::getCurrentEntityId();
+        $entityId = \App\Controllers\EntityController::getCurrentEntityId();
 
-            if (!$entityId) {
-                $this->flash('error', 'Please select a business entity first.');
-                return $this->redirect($response, '/entities');
-            }
-
-            $entity = $this->db->fetch("SELECT * FROM entities WHERE id = ?", [$entityId]);
-            if (!$entity) {
-                $this->flash('error', 'Entity not found.');
-                return $this->redirect($response, '/entities');
-            }
-
-            if ($entity['type'] !== 'business') {
-                return $this->redirect($response, '/');
-            }
-
-            // Determine quarter
-            $currentMonth = (int) date('n');
-            $currentYear = (int) date('Y');
-            $quarter = ceil($currentMonth / 3);
-
-            // Fetch quarterly data
-            $taxEstimate = $this->getTaxEstimate($entityId, $currentYear, $quarter);
-
-            // Calculate Profit/Loss for this Year
-            $yearStart = "{$currentYear}-01-01";
-            $yearEnd = "{$currentYear}-12-31";
-
-            $totals = $this->db->fetch(
-                "SELECT 
-                    SUM(CASE WHEN type = 'income' THEN amount_cents ELSE 0 END) as total_income,
-                    SUM(CASE WHEN type = 'expense' THEN amount_cents ELSE 0 END) as total_expense
-                 FROM transactions 
-                 WHERE entity_id = ? AND date >= ? AND date <= ?",
-                [$entityId, $yearStart, $yearEnd]
-            );
-
-            if (!$totals) {
-                $totals = ['total_income' => 0, 'total_expense' => 0];
-            }
-
-            $revenue = (int) ($totals['total_income'] ?? 0);
-            $expenses = (int) ($totals['total_expense'] ?? 0);
-            $profit = $revenue - $expenses;
-
-            // Fetch recent invoices
-            $recentInvoices = $this->db->fetchAll(
-                "SELECT * FROM invoices WHERE entity_id = ? ORDER BY created_at DESC LIMIT 5",
-                [$entityId]
-            );
-
-            // Calculate estimated tax due based on profit (YTD)
-            // Using entity tax rate
-            $taxRate = $entity['tax_rate_percent'] / 100;
-            $estimatedTaxYTD = max(0, $profit * $taxRate);
-
-            return $this->render($response, 'llc-dashboard/index.twig', [
-                'entity' => $entity,
-                'quarter' => $quarter,
-                'year' => $currentYear,
-                'revenue_cents' => $revenue,
-                'expenses_cents' => $expenses,
-                'profit_cents' => $profit,
-                'estimated_tax_ytd_cents' => (int) $estimatedTaxYTD,
-                'tax_estimate' => $taxEstimate,
-                'recent_invoices' => $recentInvoices,
-            ]);
-        } catch (\Throwable $e) {
-            die("Error loading LLC Dashboard: " . $e->getMessage() . " in " . $e->getFile() . " on line " . $e->getLine());
+        if (!$entityId) {
+            $this->flash('error', 'Please select a business entity first.');
+            return $this->redirect($response, '/entities');
         }
+
+        $entity = $this->db->fetch("SELECT * FROM entities WHERE id = ?", [$entityId]);
+        if (!$entity) {
+            $this->flash('error', 'Entity not found.');
+            return $this->redirect($response, '/entities');
+        }
+
+        if ($entity['type'] !== 'business') {
+            return $this->redirect($response, '/');
+        }
+
+        // Determine quarter
+        $currentMonth = (int) date('n');
+        $currentYear = (int) date('Y');
+        $quarter = (int) ceil($currentMonth / 3);
+
+        // Fetch quarterly data
+        $taxEstimate = $this->getTaxEstimate($entityId, $currentYear, $quarter);
+
+        // Calculate Profit/Loss for this Year
+        $yearStart = "{$currentYear}-01-01";
+        $yearEnd = "{$currentYear}-12-31";
+
+        $totals = $this->db->fetch(
+            "SELECT 
+                SUM(CASE WHEN type = 'income' THEN amount_cents ELSE 0 END) as total_income,
+                SUM(CASE WHEN type = 'expense' THEN amount_cents ELSE 0 END) as total_expense
+             FROM transactions 
+             WHERE entity_id = ? AND date >= ? AND date <= ?",
+            [$entityId, $yearStart, $yearEnd]
+        );
+
+        if (!$totals) {
+            $totals = ['total_income' => 0, 'total_expense' => 0];
+        }
+
+        $revenue = (int) ($totals['total_income'] ?? 0);
+        $expenses = (int) ($totals['total_expense'] ?? 0);
+        $profit = $revenue - $expenses;
+
+        // Fetch recent invoices
+        $recentInvoices = $this->db->fetchAll(
+            "SELECT * FROM invoices WHERE entity_id = ? ORDER BY created_at DESC LIMIT 5",
+            [$entityId]
+        );
+
+        // Calculate estimated tax due based on profit (YTD)
+        // Using entity tax rate
+        $taxRate = $entity['tax_rate_percent'] / 100;
+        $estimatedTaxYTD = max(0, $profit * $taxRate);
+
+        return $this->render($response, 'llc-dashboard/index.twig', [
+            'entity' => $entity,
+            'quarter' => $quarter,
+            'year' => $currentYear,
+            'revenue_cents' => $revenue,
+            'expenses_cents' => $expenses,
+            'profit_cents' => $profit,
+            'estimated_tax_ytd_cents' => (int) $estimatedTaxYTD,
+            'tax_estimate' => $taxEstimate,
+            'recent_invoices' => $recentInvoices,
+        ]);
     }
 
     /**
