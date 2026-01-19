@@ -12,9 +12,11 @@ $repoPath = '/home/ravenscv/repositories/everydollar';
 chdir($repoPath);
 
 // 1. CHECK GIT VERSION
-echo "[1] Checking Code Version...\n";
+echo "[1] Checking Code Version and Features...\n";
 exec('git log -n 1 --format="%h - %s"', $git_output);
 echo "    Commit: " . implod($git_output) . "\n";
+echo "    PHP Version: " . phpversion() . "\n";
+
 // Check key files
 $files = [
     'src/routes.php' => 'Rules Route',
@@ -23,15 +25,22 @@ $files = [
 ];
 foreach ($files as $file => $label) {
     if (file_exists($repoPath . '/' . $file)) {
-        echo "    [OK] $label file exists.\n";
-        // Deep check for routes
+        $content = file_get_contents($repoPath . '/' . $file);
+
         if ($file === 'src/routes.php') {
-            $content = file_get_contents($repoPath . '/' . $file);
-            if (strpos($content, '/settings/rules') !== false) {
-                echo "         (Route definition found)\n";
+            if (strpos($content, '/settings/rules/seed') !== false) {
+                echo "    [OK] Route '/settings/rules/seed' found.\n";
             } else {
-                echo "         (FAIL: Route definition MISSING in file)\n";
+                echo "    [FAIL] Route '/settings/rules/seed' MISSING.\n";
             }
+        } elseif ($file === 'src/Services/AutoCategorizationService.php') {
+            if (strpos($content, 'seedDefaultRules') !== false) {
+                echo "    [OK] Method 'seedDefaultRules' found.\n";
+            } else {
+                echo "    [FAIL] Method 'seedDefaultRules' MISSING.\n";
+            }
+        } else {
+            echo "    [OK] $label file exists.\n";
         }
     } else {
         echo "    [FAIL] $file is MISSING.\n";
