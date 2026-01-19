@@ -1,0 +1,115 @@
+{% extends "layout.twig" %}
+
+{% block title %}Auto-Categorization Rules - {{ app_name }}{% endblock %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto space-y-6">
+    <div class="flex items-center justify-between">
+        <h1 class="text-2xl font-bold text-white">Settings</h1>
+    </div>
+
+    <!-- settings navigation -->
+    <div class="border-b border-gray-700">
+        <ul class="flex flex-wrap -mb-px text-sm font-medium text-center text-gray-400">
+            <li class="mr-2">
+                <a href="{{ base_path() }}/settings/security" class="inline-block p-4 rounded-t-lg hover:text-gray-300 hover:bg-gray-800 {{ active_tab == 'security' ? 'text-emerald-400 border-b-2 border-emerald-400 active' : 'border-transparent' }}">
+                    Security
+                </a>
+            </li>
+            <li class="mr-2">
+                <a href="{{ base_path() }}/settings/rules" class="inline-block p-4 rounded-t-lg hover:text-gray-300 hover:bg-gray-800 {{ active_tab == 'rules' ? 'text-emerald-400 border-b-2 border-emerald-400 active' : 'border-transparent' }}">
+                    Auto-Categorization
+                </a>
+            </li>
+        </ul>
+    </div>
+
+    <!-- Create Rule -->
+    <div class="bg-gray-800 rounded-xl border border-gray-700 p-6">
+        <h2 class="text-lg font-semibold text-white mb-4">Create New Rule</h2>
+        <form action="{{ base_path() }}/settings/rules" method="POST">
+            {{ csrf_field()|raw }}
+            <div class="grid grid-cols-1 md:grid-cols-12 gap-4 items-end">
+                <div class="md:col-span-5">
+                    <label for="search_term" class="block mb-2 text-sm font-medium text-gray-300">If Payee Contains</label>
+                    <input type="text" id="search_term" name="search_term" placeholder="e.g. Walmart" required
+                           class="bg-gray-900 border border-gray-600 text-white text-sm rounded-lg focus:ring-emerald-500 focus:border-emerald-500 block w-full p-2.5 placeholder-gray-500">
+                </div>
+                <div class="md:col-span-2">
+                     <label for="match_type" class="block mb-2 text-sm font-medium text-gray-300">Match</label>
+                     <select id="match_type" name="match_type"
+                             class="bg-gray-900 border border-gray-600 text-white text-sm rounded-lg focus:ring-emerald-500 focus:border-emerald-500 block w-full p-2.5">
+                         <option value="contains" selected>Contains</option>
+                         <option value="exact">Exact</option>
+                     </select>
+                </div>
+                <div class="md:col-span-3">
+                    <label for="category_id" class="block mb-2 text-sm font-medium text-gray-300">Assign Category</label>
+                    <select id="category_id" name="category_id" required
+                            class="bg-gray-900 border border-gray-600 text-white text-sm rounded-lg focus:ring-emerald-500 focus:border-emerald-500 block w-full p-2.5">
+                        <option value="">Select Category...</option>
+                        {% for cat in categories %}
+                            <option value="{{ cat.id }}">{{ cat.group_name }} - {{ cat.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="md:col-span-2">
+                    <button type="submit" class="w-full text-white bg-emerald-600 hover:bg-emerald-700 focus:ring-4 focus:ring-emerald-800 font-medium rounded-lg text-sm px-5 py-2.5 focus:outline-none transition-colors">
+                        Add Rule
+                    </button>
+                </div>
+            </div>
+        </form>
+    </div>
+
+    <!-- Existing Rules -->
+    <div class="bg-gray-800 rounded-xl border border-gray-700 overflow-hidden">
+        <div class="p-6 border-b border-gray-700">
+             <h2 class="text-lg font-semibold text-white">Existing Rules</h2>
+        </div>
+        <div class="overflow-x-auto">
+            <table class="w-full text-sm text-left text-gray-400">
+                <thead class="text-xs text-gray-400 uppercase bg-gray-700">
+                    <tr>
+                        <th scope="col" class="px-6 py-3">Match Type</th>
+                        <th scope="col" class="px-6 py-3">Search Term</th>
+                        <th scope="col" class="px-6 py-3">Category</th>
+                        <th scope="col" class="px-6 py-3 text-right">Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for rule in rules %}
+                    <tr class="bg-gray-800 border-b border-gray-700 hover:bg-gray-700">
+                        <td class="px-6 py-4">
+                            <span class="px-2.5 py-0.5 rounded text-xs font-medium {{ rule.match_type == 'exact' ? 'bg-purple-900 text-purple-300' : 'bg-blue-900 text-blue-300' }}">
+                                {{ rule.match_type|capitalize }}
+                            </span>
+                        </td>
+                        <td class="px-6 py-4 font-medium text-white">
+                            "{{ rule.search_term }}"
+                        </td>
+                        <td class="px-6 py-4">
+                            {{ rule.category_name }}
+                        </td>
+                        <td class="px-6 py-4 text-right">
+                            <form action="{{ base_path() }}/settings/rules/{{ rule.id }}/delete" method="POST" onsubmit="return confirm('Are you sure you want to delete this rule?');" class="inline">
+                                {{ csrf_field()|raw }}
+                                <button type="submit" class="font-medium text-red-400 hover:underline hover:text-red-300">
+                                    Delete
+                                </button>
+                            </form>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr class="bg-gray-800 border-b border-gray-700">
+                        <td colspan="4" class="px-6 py-8 text-center text-gray-500">
+                            No rules defined yet. Add one above!
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

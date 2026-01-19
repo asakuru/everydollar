@@ -28,6 +28,7 @@ class SettingsController extends BaseController
     {
         return $this->render($response, 'settings/security.twig', [
             'totp_enabled' => false, // Will be populated from user record when implemented
+            'active_tab' => 'security',
         ]);
     }
 }

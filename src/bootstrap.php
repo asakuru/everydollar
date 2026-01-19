@@ -114,6 +114,13 @@ $containerBuilder->addDefinitions([
         return new CsvParserService();
     },
 
+    // Auto Categorization Service
+    \App\Services\AutoCategorizationService::class => function (ContainerInterface $c) {
+        return new \App\Services\AutoCategorizationService(
+            $c->get(Database::class)
+        );
+    },
+
         // Twig
     Twig::class => function (ContainerInterface $c) {
         $config = $c->get('config');

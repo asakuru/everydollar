@@ -19,11 +19,13 @@ use Slim\Views\Twig;
 class ImportController extends BaseController
 {
     private CsvParserService $csvParser;
+    private \App\Services\AutoCategorizationService $autoCat;
 
-    public function __construct(Twig $twig, Database $db, CsvParserService $csvParser)
+    public function __construct(Twig $twig, Database $db, CsvParserService $csvParser, \App\Services\AutoCategorizationService $autoCat)
     {
         parent::__construct($twig, $db);
         $this->csvParser = $csvParser;
+        $this->autoCat = $autoCat;
     }
 
     /**
@@ -82,6 +84,16 @@ class ImportController extends BaseController
                 $newTransactions[] = $tx;
             }
         }
+
+        // Auto-categorize
+        $householdId = $this->householdId();
+        foreach ($newTransactions as &$tx) {
+            $catId = $this->autoCat->match($householdId, $tx['payee']);
+            if ($catId) {
+                $tx['category_id'] = $catId;
+            }
+        }
+        unset($tx); // Break reference
 
         // Store parsed data in session for final import
         $_SESSION['import_data'] = [

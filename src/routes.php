@@ -115,7 +115,11 @@ $app->group('', function (RouteCollectorProxy $group) {
     $group->get('/reports', [ReportsController::class, 'index'])->setName('reports');
 
     // Settings
+    // Settings
     $group->get('/settings/security', [SettingsController::class, 'security'])->setName('settings.security');
+    $group->get('/settings/rules', [\App\Controllers\RuleController::class, 'index'])->setName('settings.rules');
+    $group->post('/settings/rules', [\App\Controllers\RuleController::class, 'create']);
+    $group->post('/settings/rules/{id}/delete', [\App\Controllers\RuleController::class, 'delete']);
 
     // Invite Management (for household owner)
     $group->get('/invite', [InviteController::class, 'showCreate'])->setName('invite.create');
