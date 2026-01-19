@@ -173,8 +173,10 @@ class AutoCategorizationService
      */
     public function deleteRule(int $householdId, int $ruleId): bool
     {
-        $this->db->query(
-            "DELETE FROM transaction_rules WHERE id = ? AND household_id = ?",
+        // Use delete() method: table, where clause, params
+        $this->db->delete(
+            'transaction_rules',
+            'id = ? AND household_id = ?',
             [$ruleId, $householdId]
         );
 
