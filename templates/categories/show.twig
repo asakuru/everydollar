@@ -43,7 +43,7 @@
         </div>
         <div class="h-3 bg-gray-700 rounded-full overflow-hidden">
             <div class="h-full {% if spent_percent > 100 %}bg-red-500{% elseif spent_percent > 80 %}bg-yellow-500{% else %}bg-emerald-500{% endif %} transition-all"
-                 style="width: {{ [spent_percent, 100]|min }}%"></div>
+                 style="width: {{ min(spent_percent, 100) }}%"></div>
         </div>
     </div>
     

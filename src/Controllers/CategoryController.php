@@ -26,78 +26,73 @@ class CategoryController extends BaseController
      */
     public function show(Request $request, Response $response, array $args): Response
     {
-        try {
-            $categoryId = (int) $args['id'];
-            $queryParams = $request->getQueryParams();
-            $month = $queryParams['month'] ?? date('Y-m');
+        $categoryId = (int) $args['id'];
+        $queryParams = $request->getQueryParams();
+        $month = $queryParams['month'] ?? date('Y-m');
 
-            $householdId = $this->householdId();
+        $householdId = $this->householdId();
 
-            // Get category with group
-            $category = $this->db->fetch(
-                "SELECT c.*, cg.name as group_name
-                 FROM categories c
-                 JOIN category_groups cg ON cg.id = c.category_group_id
-                 WHERE c.id = ? AND cg.household_id = ?",
-                [$categoryId, $householdId]
-            );
+        // Get category with group
+        $category = $this->db->fetch(
+            "SELECT c.*, cg.name as group_name
+             FROM categories c
+             JOIN category_groups cg ON cg.id = c.category_group_id
+             WHERE c.id = ? AND cg.household_id = ?",
+            [$categoryId, $householdId]
+        );
 
-            if (!$category) {
-                $this->flash('error', 'Category not found.');
-                return $this->redirect($response, '/budget/' . $month);
-            }
-
-            // Get transactions for this category and month
-            $startDate = $month . '-01';
-            $endDate = date('Y-m-t', strtotime($startDate));
-
-            $transactions = $this->db->fetchAll(
-                "SELECT * FROM transactions 
-                 WHERE household_id = ? AND category_id = ?
-                 AND date >= ? AND date <= ?
-                 ORDER BY date DESC",
-                [$householdId, $categoryId, $startDate, $endDate]
-            );
-
-            // Get budget item
-            $budgetMonth = $this->db->fetch(
-                "SELECT id FROM budget_months WHERE household_id = ? AND month_yyyymm = ?",
-                [$householdId, $month]
-            );
-
-            $budgetItem = null;
-            $actualCents = 0;
-
-            if ($budgetMonth) {
-                $budgetItem = $this->db->fetch(
-                    "SELECT * FROM budget_items WHERE budget_month_id = ? AND category_id = ?",
-                    [$budgetMonth['id'], $categoryId]
-                );
-
-                $actualCents = $this->db->fetchColumn(
-                    "SELECT COALESCE(SUM(ABS(amount_cents)), 0) 
-                     FROM transactions 
-                     WHERE category_id = ? AND budget_month_id = ? AND type = 'expense'",
-                    [$categoryId, $budgetMonth['id']]
-                );
-            }
-
-            $plannedCents = $budgetItem['planned_cents'] ?? 0;
-            $remainingCents = $plannedCents - $actualCents;
-
-            return $this->render($response, 'categories/show.twig', [
-                'category' => $category,
-                'month' => $month,
-                'month_display' => date('F Y', strtotime($startDate)),
-                'transactions' => $transactions,
-                'planned_cents' => $plannedCents,
-                'actual_cents' => $actualCents,
-                'remaining_cents' => $remainingCents,
-            ]);
-        } catch (\Throwable $e) {
-            $this->flash('error', 'Error loading category: ' . $e->getMessage() . ' in ' . $e->getFile() . ':' . $e->getLine());
-            return $this->redirect($response, '/budget/' . ($month ?? date('Y-m')));
+        if (!$category) {
+            $this->flash('error', 'Category not found.');
+            return $this->redirect($response, '/budget/' . $month);
         }
+
+        // Get transactions for this category and month
+        $startDate = $month . '-01';
+        $endDate = date('Y-m-t', strtotime($startDate));
+
+        $transactions = $this->db->fetchAll(
+            "SELECT * FROM transactions 
+             WHERE household_id = ? AND category_id = ?
+             AND date >= ? AND date <= ?
+             ORDER BY date DESC",
+            [$householdId, $categoryId, $startDate, $endDate]
+        );
+
+        // Get budget item
+        $budgetMonth = $this->db->fetch(
+            "SELECT id FROM budget_months WHERE household_id = ? AND month_yyyymm = ?",
+            [$householdId, $month]
+        );
+
+        $budgetItem = null;
+        $actualCents = 0;
+
+        if ($budgetMonth) {
+            $budgetItem = $this->db->fetch(
+                "SELECT * FROM budget_items WHERE budget_month_id = ? AND category_id = ?",
+                [$budgetMonth['id'], $categoryId]
+            );
+
+            $actualCents = $this->db->fetchColumn(
+                "SELECT COALESCE(SUM(ABS(amount_cents)), 0) 
+                 FROM transactions 
+                 WHERE category_id = ? AND budget_month_id = ? AND type = 'expense'",
+                [$categoryId, $budgetMonth['id']]
+            );
+        }
+
+        $plannedCents = $budgetItem['planned_cents'] ?? 0;
+        $remainingCents = $plannedCents - $actualCents;
+
+        return $this->render($response, 'categories/show.twig', [
+            'category' => $category,
+            'month' => $month,
+            'month_display' => date('F Y', strtotime($startDate)),
+            'transactions' => $transactions,
+            'planned_cents' => $plannedCents,
+            'actual_cents' => $actualCents,
+            'remaining_cents' => $remainingCents,
+        ]);
     }
 
     /**
