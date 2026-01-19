@@ -12,12 +12,12 @@
     <div class="border-b border-gray-700">
         <ul class="flex flex-wrap -mb-px text-sm font-medium text-center text-gray-400">
             <li class="mr-2">
-                <a href="{{ base_path() }}/settings/security" class="inline-block p-4 rounded-t-lg hover:text-gray-300 hover:bg-gray-800 {{ active_tab == 'security' or active_tab is empty ? 'text-emerald-400 border-b-2 border-emerald-400 active' : 'border-transparent' }}">
+                <a href="{{ base_path('/settings/security') }}" class="inline-block p-4 rounded-t-lg hover:text-gray-300 hover:bg-gray-800 {{ active_tab == 'security' or active_tab is empty ? 'text-emerald-400 border-b-2 border-emerald-400 active' : 'border-transparent' }}">
                     Security
                 </a>
             </li>
             <li class="mr-2">
-                <a href="{{ base_path() }}/settings/rules" class="inline-block p-4 rounded-t-lg hover:text-gray-300 hover:bg-gray-800 {{ active_tab == 'rules' ? 'text-emerald-400 border-b-2 border-emerald-400 active' : 'border-transparent' }}">
+                <a href="{{ base_path('/settings/rules') }}" class="inline-block p-4 rounded-t-lg hover:text-gray-300 hover:bg-gray-800 {{ active_tab == 'rules' ? 'text-emerald-400 border-b-2 border-emerald-400 active' : 'border-transparent' }}">
                     Auto-Categorization
                 </a>
             </li>

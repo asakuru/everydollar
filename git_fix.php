@@ -1,43 +1,52 @@
 <?php
 /**
- * Git Fix Script
+ * Git Fix & Verify Script
  * 
- * executing a hard reset to force the server to match the GitHub repository.
- * WARNING: This will discard any changes made directly to files on the server.
+ * 1. Clears OPcache
+ * 2. Hard resets Git
+ * 3. Verifies file content immediately
  */
 
-header('Content-Type: text/plain');
+// Try to clear PHP's internal cache
+if (function_exists('opcache_reset')) {
+    opcache_reset();
+}
 
-// Path derived from your error logs
+header('Content-Type: text/plain');
 $repoPath = '/home/ravenscv/repositories/everydollar';
 
-echo "=== GIT FIX INITIATED ===\n";
-echo "Target: $repoPath\n";
+echo "=== DIAGNOSTIC FIX TOOL ===\n";
+echo "Timestamp: " . date('H:i:s') . "\n";
 
 if (!is_dir($repoPath)) {
-    die("Error: Repository path not found.");
+    die("CRITICAL: Repo path does not exist.\n");
 }
-
 chdir($repoPath);
 
-// Set environment for cPanel git
-putenv("HOME=/home/ravenscv");
+// 1. GIT OPERATION
+echo "\n[1] Running Git Reset...\n";
+$out = [];
+exec('git fetch origin main 2>&1', $out);
+exec('git reset --hard origin/main 2>&1', $out);
+echo implode("\n", $out) . "\n";
 
-function run($cmd)
-{
-    echo "\n> $cmd\n";
-    $output = [];
-    $return_var = 0;
-    exec($cmd . ' 2>&1', $output, $return_var);
-    echo implode("\n", $output);
+// 2. CHECK FILE CONTENT
+echo "\n[2] Verifying src/routes.php...\n";
+$routesFile = $repoPath . '/src/routes.php';
+$content = file_get_contents($routesFile);
+
+if (strpos($content, '/settings/rules') !== false) {
+    echo ">>> SUCCESS: The file HAS the new route definition.\n";
+    echo "If you still get 404, it is definitely a caching issue.\n";
+} else {
+    echo ">>> FAILURE: The file is STILL OLD/MISSING the route.\n";
+    echo "File Permissions: " . substr(sprintf('%o', fileperms($routesFile)), -4) . "\n";
+    echo "File Owner: " . fileowner($routesFile) . "\n";
+    echo "Process User: " . get_current_user() . "\n";
 }
 
-// 1. Fetch latest details from GitHub
-run('git fetch origin main');
+echo "\n[3] Checking HEAD commit...\n";
+exec('git log -n 1 --format="%h - %s"', $log);
+echo implode("\n", $log) . "\n";
 
-// 2. FORCE reset to match GitHub exactly
-// This fixes "Update from remote" errors caused by conflicts
-run('git reset --hard origin/main');
-
-echo "\n\n=== DONE ===\n";
-echo "Please try accessing the Auto-Categorization page again.";
+echo "\nCompleted.";
