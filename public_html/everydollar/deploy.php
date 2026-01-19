@@ -75,8 +75,11 @@ $commands = [
     // Database: Run Migrations
     "cd {$repoPath} && {$phpPath} migrations/migrate.php",
 
-    // Deploy: Copy files to web root
+    // Deploy: Copy public_html files to web root
     "cp -R {$repoPath}/public_html/everydollar/. /home/ravenscv/fuzzysolution.com/everydollar/",
+
+    // Deploy: Copy utility scripts from repo root (health_check, debug_seed, etc.)
+    "cp {$repoPath}/*.php /home/ravenscv/fuzzysolution.com/everydollar/ 2>/dev/null || true",
 
     // Cache: Clear Twig cache
     "rm -rf /home/ravenscv/repositories/everydollar/storage/cache/twig/*"
