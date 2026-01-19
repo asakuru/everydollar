@@ -12,10 +12,8 @@ echo "EveryDollar Database Migrator\n";
 echo "=============================\n\n";
 
 // Define paths
-$rootDir = dirname(__DIR__); // public_html/everydollar is root for web, but repo root is one up
-// Wait, if this file is in /migrations, then __DIR__ is /path/to/repo/migrations
-// So $rootDir is /path/to/repo
 $rootDir = dirname(__DIR__);
+$migrationsDir = __DIR__;
 
 echo "Repo Root: {$rootDir}\n";
 
@@ -62,69 +60,70 @@ try {
     die("Database Connection Error: " . $e->getMessage() . "\n");
 }
 
-// Migration Files
-$migrationFile = __DIR__ . '/003_fix_budget_month_index.sql';
+// Ensure migrations table exists
+$pdo->exec("
+    CREATE TABLE IF NOT EXISTS migrations (
+        id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+        migration VARCHAR(255) NOT NULL,
+        executed_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE INDEX idx_migration (migration)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+");
 
-if (!file_exists($migrationFile)) {
-    die("Error: Migration file not found at {$migrationFile}\n");
-}
+// Get executed migrations
+$executed = $pdo->query("SELECT migration FROM migrations")->fetchAll(PDO::FETCH_COLUMN);
 
-echo "Running migration: 003_fix_budget_month_index.sql\n... ";
+// Scan for .sql files
+$files = glob($migrationsDir . '/*.sql');
+sort($files); // Ensure order (001, 002, 003...)
 
-try {
-    // Read SQL
-    $sql = file_get_contents($migrationFile);
+foreach ($files as $file) {
+    $filename = basename($file, '.sql');
 
-    // Strip comments to avoid parsing issues with logic
-    $lines = explode("\n", $sql);
-    $cleanLines = array_filter($lines, fn($line) => !str_starts_with(trim($line), '--'));
-    $cleanSql = implode("\n", $cleanLines);
-
-    // Split into statements
-    $statements = array_filter(
-        array_map('trim', explode(';', $cleanSql)),
-        fn($s) => !empty($s)
-    );
-
-    // MySQL DDL statements invoke implicit commit, so we cannot use a single transaction.
-    // We execute statements one by one.
-
-    foreach ($statements as $stmt) {
-        try {
-            $pdo->exec($stmt);
-        } catch (PDOException $e) {
-            // Check for duplicate/existing errors
-            // 1060: Duplicate column name
-            // 1050: Table already exists
-            // 1061: Duplicate key name
-            // 1005 (errno 121): Duplicate key on write or update
-
-            $msg = $e->getMessage();
-            $code = $e->getCode();
-
-            if (
-                $code == '42S21' || // Column already exists
-                $code == '42S01' || // Table already exists
-                str_contains($msg, 'Duplicate column name') ||
-                str_contains($msg, 'already exists') ||
-                str_contains($msg, 'Duplicate key') ||
-                str_contains($msg, 'errno: 121') ||
-                str_contains($msg, "Check that column/key exists") // MySQL DROP INDEX error for non-existent
-            ) {
-                echo "Warning: Skipped duplicate/existing item.\n";
-                // Continue to next statement
-                continue;
-            }
-
-            // Re-throw other errors
-            throw $e;
-        }
+    // Skip if already executed
+    if (in_array($filename, $executed)) {
+        echo "[SKIP] {$filename} (already executed)\n";
+        continue;
     }
 
-    echo "Done!\n";
-    echo "Success: Migration 002 applied successfully.\n";
+    echo "[RUN ] {$filename}...\n";
 
-} catch (PDOException $e) {
-    echo "FAILED!\n";
-    echo "Error: " . $e->getMessage() . "\n";
+    try {
+        // Read SQL
+        $sql = file_get_contents($file);
+
+        // Strip comments simple approach
+        $lines = explode("\n", $sql);
+        $cleanLines = array_filter($lines, fn($line) => !str_starts_with(trim($line), '--'));
+        $cleanSql = implode("\n", $cleanLines);
+
+        // Helper to split by semicolon but respect basic SQL structure
+        // ideally we'd use a parser, but simple split usually works for migrations
+        $statements = array_filter(
+            array_map('trim', explode(';', $cleanSql)),
+            fn($s) => !empty($s)
+        );
+
+        $pdo->beginTransaction();
+
+        foreach ($statements as $stmt) {
+            $pdo->exec($stmt);
+        }
+
+        // Log migration
+        $stmt = $pdo->prepare("INSERT INTO migrations (migration) VALUES (?)");
+        $stmt->execute([$filename]);
+
+        $pdo->commit();
+        echo "       -> Success!\n";
+
+    } catch (Exception $e) {
+        if ($pdo->inTransaction()) {
+            $pdo->rollBack();
+        }
+        echo "       -> FAILED: " . $e->getMessage() . "\n";
+        exit(1);
+    }
 }
+
+echo "\nAll migrations up to date.\n";
