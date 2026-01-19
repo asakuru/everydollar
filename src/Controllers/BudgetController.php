@@ -385,7 +385,40 @@ class BudgetController extends BaseController
                     [$cat['id'], $budgetMonthId]
                 );
                 $cat['actual_cents'] = $actualCents;
-                $cat['remaining_cents'] = $cat['planned_cents'] - $actualCents;
+
+                if (!empty($cat['is_fund'])) {
+                    // Sinking Fund Logic: Lifetime Planned - Lifetime Spent
+                    // Get all-time planned for this category up to this month
+                    $lifetimePlanned = $this->db->fetchColumn(
+                        "SELECT COALESCE(SUM(bi.planned_cents), 0)
+                         FROM budget_items bi
+                         JOIN budget_months bm ON bm.id = bi.budget_month_id
+                         WHERE bi.category_id = ? AND bm.month_yyyymm <= (
+                            SELECT month_yyyymm FROM budget_months WHERE id = ?
+                         )",
+                        [$cat['id'], $budgetMonthId]
+                    );
+
+                    // Get all-time spent for this category up to end of this month
+                    // We need the month string for the date comparison
+                    $monthStr = $this->db->fetchColumn(
+                        "SELECT month_yyyymm FROM budget_months WHERE id = ?",
+                        [$budgetMonthId]
+                    );
+                    $endOfThisMonth = date('Y-m-t', strtotime($monthStr . '-01'));
+
+                    $lifetimeSpent = $this->db->fetchColumn(
+                        "SELECT COALESCE(SUM(ABS(amount_cents)), 0)
+                         FROM transactions
+                         WHERE category_id = ? AND date <= ? AND type = 'expense'",
+                        [$cat['id'], $endOfThisMonth]
+                    );
+
+                    $cat['remaining_cents'] = $lifetimePlanned - $lifetimeSpent;
+                } else {
+                    // Normal Category: This Month Planned - This Month Spent
+                    $cat['remaining_cents'] = $cat['planned_cents'] - $actualCents;
+                }
             }
 
             $group['categories'] = $categories;

@@ -85,5 +85,71 @@
         </div>
         {% endif %}
     </div>
+    </div>
+
+    <!-- Category Settings -->
+    <div class="bg-gray-800 rounded-xl border border-gray-700 overflow-hidden">
+        <div class="px-5 py-4 border-b border-gray-700">
+            <h2 class="text-lg font-semibold text-white">Settings</h2>
+        </div>
+        <div class="p-5">
+            <form method="POST" action="{{ base_path('/category/' ~ category.id ~ '/update') }}" class="space-y-4">
+                {{ csrf_field()|raw }}
+                <input type="hidden" name="month" value="{{ month }}">
+                
+                <div>
+                    <label class="block text-sm text-gray-400 mb-1">Category Name</label>
+                    <input type="text" name="name" value="{{ category.name }}" required
+                           class="w-full bg-gray-700 text-white rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-emerald-500">
+                </div>
+
+                <div class="flex items-center space-x-3">
+                    <input type="checkbox" id="is_fund" name="is_fund" value="1" {% if category.is_fund %}checked{% endif %}
+                           class="w-5 h-5 rounded bg-gray-700 border-gray-600 text-emerald-500 focus:ring-emerald-500">
+                    <label for="is_fund" class="text-white">Make this a Sinking Fund</label>
+                </div>
+                <p class="text-sm text-gray-500 ml-8">Funds carry their balance over to the next month.</p>
+
+                <div id="fund_target_container" class="{% if not category.is_fund %}hidden{% endif %}">
+                    <label class="block text-sm text-gray-400 mb-1">Target Amount (Optional)</label>
+                    <div class="relative">
+                        <span class="absolute left-3 top-2 text-gray-500">$</span>
+                        <input type="text" name="fund_target" value="{{ category.fund_target_cents ? '%.2f'|format(category.fund_target_cents / 100) : '' }}" 
+                               class="w-full bg-gray-700 text-white rounded-lg pl-8 pr-4 py-2 focus:outline-none focus:ring-2 focus:ring-emerald-500">
+                    </div>
+                </div>
+
+                <div class="pt-2">
+                    <button type="submit" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg transition-colors">
+                        Save Changes
+                    </button>
+                </div>
+            </form>
+            
+            <hr class="border-gray-700 my-6">
+            
+            <form method="POST" action="{{ base_path('/category/' ~ category.id ~ '/archive') }}" 
+                  onsubmit="return confirm('Are you sure you want to archive this category? It will be hidden from the budget.');">
+                {{ csrf_field()|raw }}
+                <input type="hidden" name="month" value="{{ month }}">
+                <button type="submit" class="text-red-400 hover:text-red-300 text-sm">
+                    Archive Category
+                </button>
+            </form>
+        </div>
+    </div>
 </div>
+
+<script>
+    const isFundCheckbox = document.getElementById('is_fund');
+    const fundTargetContainer = document.getElementById('fund_target_container');
+
+    isFundCheckbox.addEventListener('change', function() {
+        if (this.checked) {
+            fundTargetContainer.classList.remove('hidden');
+        } else {
+            fundTargetContainer.classList.add('hidden');
+        }
+    });
+</script>
 {% endblock %}

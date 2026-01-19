@@ -226,10 +226,19 @@ class CategoryController extends BaseController
             [$groupId]
         );
 
+        // Check for duplicates
+        // ... (existing duplicate check if needed)
+
+        $isFund = !empty($data['is_fund']);
+        $fundTarget = !empty($data['fund_target']) ? $this->parseMoney($data['fund_target']) : null;
+        $sortOrder = ($maxSort ?? -1) + 1;
+
         $this->db->insert('categories', [
             'category_group_id' => $groupId,
             'name' => $name,
-            'sort_order' => ($maxSort ?? -1) + 1,
+            'sort_order' => $sortOrder,
+            'is_fund' => $isFund ? 1 : 0,
+            'fund_target_cents' => $fundTarget,
             'archived' => 0,
             'created_at' => date('Y-m-d H:i:s'),
             'updated_at' => date('Y-m-d H:i:s'),
@@ -274,8 +283,18 @@ class CategoryController extends BaseController
         $name = trim($data['name'] ?? '');
 
         if (!empty($name)) {
+            $isFund = isset($data['is_fund']) ? (bool) $data['is_fund'] : $category['is_fund'];
+            $fundTarget = isset($data['fund_target']) ? $this->parseMoney($data['fund_target']) : $category['fund_target_cents'];
+
+            // If turning off fund, clear target
+            if (!$isFund) {
+                $fundTarget = null;
+            }
+
             $this->db->update('categories', [
                 'name' => $name,
+                'is_fund' => $isFund ? 1 : 0,
+                'fund_target_cents' => $fundTarget,
                 'updated_at' => date('Y-m-d H:i:s'),
             ], 'id = ?', [$categoryId]);
 
