@@ -22,7 +22,7 @@ class CsvParserService
         'corning_cu' => [
             'name' => 'Corning Credit Union',
             'date_column' => 'Date',
-            'alt_date_columns' => ['Transaction Date', 'Posted Date'],
+            'alt_date_columns' => ['Transaction Date', 'Posted Date', 'Posting Date'],
             'amount_column' => 'Amount',
             'alt_amount_columns' => ['Transaction Amount'],
             'description_column' => 'Description',
@@ -42,7 +42,7 @@ class CsvParserService
         'generic' => [
             'name' => 'Generic CSV',
             'date_column' => 'Date',
-            'alt_date_columns' => ['Transaction Date', 'Posted Date', 'Trans Date'],
+            'alt_date_columns' => ['Transaction Date', 'Posted Date', 'Trans Date', 'Posting Date'],
             'amount_column' => 'Amount',
             'alt_amount_columns' => ['Transaction Amount', 'Debit', 'Credit'],
             'description_column' => 'Description',
