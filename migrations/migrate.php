@@ -104,23 +104,27 @@ foreach ($files as $file) {
             fn($s) => !empty($s)
         );
 
-        $pdo->beginTransaction();
+        // MySQL DDL statements cause implicit commits, so we cannot uses transactions reliably for schema changes.
+        // We will execute statements one by one.
 
         foreach ($statements as $stmt) {
-            $pdo->exec($stmt);
+            try {
+                $pdo->exec($stmt);
+            } catch (PDOException $e) {
+                // Ignore "Table already exists" or "Duplicate column" type errors if re-running
+                // But generally clean scripts shouldn't error.
+                // For now, let's catch critical ones.
+                throw $e;
+            }
         }
 
         // Log migration
         $stmt = $pdo->prepare("INSERT INTO migrations (migration) VALUES (?)");
         $stmt->execute([$filename]);
 
-        $pdo->commit();
         echo "       -> Success!\n";
 
     } catch (Exception $e) {
-        if ($pdo->inTransaction()) {
-            $pdo->rollBack();
-        }
         echo "       -> FAILED: " . $e->getMessage() . "\n";
         exit(1);
     }
