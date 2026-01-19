@@ -111,9 +111,22 @@ foreach ($files as $file) {
             try {
                 $pdo->exec($stmt);
             } catch (PDOException $e) {
-                // Ignore "Table already exists" or "Duplicate column" type errors if re-running
-                // But generally clean scripts shouldn't error.
-                // For now, let's catch critical ones.
+                $msg = $e->getMessage();
+                $code = $e->getCode();
+
+                if (
+                    $code == '42S21' || // Column already exists
+                    $code == '42S01' || // Table already exists
+                    str_contains($msg, 'Duplicate column name') ||
+                    str_contains($msg, 'already exists') ||
+                    str_contains($msg, 'Duplicate key') ||
+                    str_contains($msg, 'errno: 121') ||
+                    str_contains($msg, "Check that column/key exists")
+                ) {
+                    echo "       -> Warning: Skipped duplicate/existing item.\n";
+                    continue;
+                }
+
                 throw $e;
             }
         }
