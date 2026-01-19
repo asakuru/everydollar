@@ -57,7 +57,7 @@ class EntityController extends BaseController
         }
 
         self::setCurrentEntityId($entityId);
-        $this->flash('success', 'Switched to entity.');
+        $this->flash('success', "Switched to {$entity['name']}.");
 
         // Redirect to budget for current month
         $month = date('Y-m');
