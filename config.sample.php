@@ -47,7 +47,7 @@ return [
 
         // Enable HSTS header (only enable after confirming HTTPS works correctly)
         // Warning: Once enabled, browsers will refuse HTTP for max_age seconds
-        'hsts_enabled' => false,
+        'hsts_enabled' => true,
         'hsts_max_age' => 31536000, // 1 year in seconds
 
         // Rate limiting thresholds
