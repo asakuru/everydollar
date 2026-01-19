@@ -1,49 +1,37 @@
 <?php
 /**
- * Web Migration Runner
+ * Web Migration Runner (Direct Include Version)
  * 
- * Wrapper to run migrations/migrate.php from the browser.
- * Usage: Upload to public_html/everydollar/ and visit.
+ * Bypasses shell_exec/exec which might be disabled or failing silently.
+ * Directly includes the PHP migration logic.
  */
-
 header('Content-Type: text/plain');
+ini_set('display_errors', 1);
+error_reporting(E_ALL);
 
-// Security: Basic check to prevent random execution if left on server
-// (Though it should be deleted after use)
-$secret = $_GET['key'] ?? '';
-// Simple "key" to prevent accidental clicks by bots if they find it
-// User just needs to visit run_migrations.php?key=run
+echo "=== DIRECT MIGRATION RUNNER ===\n";
+echo "Mode: In-Process Include\n\n";
 
-echo "Migration Runner\n";
-echo "================\n";
+// Ensure we are in the project root
+chdir(__DIR__);
 
-$baseDir = '/home/ravenscv/repositories/everydollar';
+$migrateScript = __DIR__ . '/migrations/migrate.php';
 
-if (!is_dir($baseDir)) {
-    die("Error: Repository directory not found.\n");
+if (!file_exists($migrateScript)) {
+    die("CRITICAL: Migration script missing at $migrateScript");
 }
 
-// Check for migration script
-$script = $baseDir . '/migrations/migrate.php';
-if (!file_exists($script)) {
-    die("Error: Migration script not found at $script\n");
+echo "Including $migrateScript ...\n";
+echo "---------------------------------------------------\n";
+
+try {
+    // Run the script directly in this process
+    require $migrateScript;
+} catch (Throwable $e) {
+    echo "\n\n!!! EXCEPTION !!!\n";
+    echo $e->getMessage() . "\n";
+    echo $e->getTraceAsString();
 }
 
-echo "Executing migrations...\n\n";
-
-// Execute via PHP CLI
-// We point to the specific php binary if needed, but 'php' is usually fine in cPanel
-$cmd = "php $script 2>&1";
-
-$output = [];
-$return_var = 0;
-exec($cmd, $output, $return_var);
-
-echo implode("\n", $output);
-
-echo "\n\nExit Code: $return_var\n";
-if ($return_var === 0) {
-    echo "Done. You can now delete this file.";
-} else {
-    echo "Error occurred.";
-}
+echo "\n---------------------------------------------------\n";
+echo "End of execution.";
