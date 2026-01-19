@@ -95,7 +95,7 @@ class LLCDashboardController extends BaseController
                 'tax_estimate' => $taxEstimate,
                 'recent_invoices' => $recentInvoices,
             ]);
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
             die("Error loading LLC Dashboard: " . $e->getMessage() . " in " . $e->getFile() . " on line " . $e->getLine());
         }
     }
